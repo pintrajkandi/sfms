@@ -165,6 +165,30 @@ export interface StudentFeeSummary {
   }[];
 }
 
+export interface ImportResult {
+  created: number;
+  error_count: number;
+  errors: { row: number; error: string }[];
+}
+
+export interface Defaulter {
+  student: string;
+  student_id: string;
+  grade: string;
+  outstanding: string;
+  days_overdue: number;
+  oldest_due: string | null;
+  bucket: string;
+  invoices: number;
+}
+
+export interface DefaulterReport {
+  defaulters: Defaulter[];
+  aging: Record<string, string>;
+  total_outstanding: string;
+  count: number;
+}
+
 export interface CollectionStats {
   total_collected: string;
   pending_dues: string;
@@ -290,4 +314,59 @@ export interface AcademicYear {
   start_date: string;
   end_date: string;
   is_current: boolean;
+}
+
+export interface RazorpayConfig {
+  enabled: boolean;
+  key_id: string;
+}
+
+export interface RazorpayOrder {
+  order_id: string;
+  amount: number; // paise (minor units)
+  currency: string;
+  key_id: string;
+}
+
+export interface RazorpayVerifyPayload {
+  invoice: number;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+export interface RazorpayVerifyResult {
+  status: string;
+  payment_id: number;
+  invoice_status: string;
+}
+
+/* ---- Parent portal (public, X-Parent-Token authed) ---- */
+
+export interface ParentVerifyResult {
+  token: string;
+  student_name: string;
+  student_id: string;
+}
+
+export interface ParentInvoice {
+  id: number;
+  invoice_number: string;
+  total: string;
+  amount_paid: string;
+  balance: string;
+  status: InvoiceStatus;
+  due_date: string | null;
+}
+
+export interface ParentPayOrder {
+  order_id: string;
+  amount: number; // paise (minor units)
+  currency: string;
+  key_id: string;
+}
+
+export interface ParentPayVerifyResult {
+  status: string;
+  invoice_status: string;
 }

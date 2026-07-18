@@ -3,8 +3,10 @@ import type {
   AcademicYear,
   CollectionDashboard,
   CollectionStats,
+  DefaulterReport,
   Expense,
   FinanceDashboard,
+  ImportResult,
   FeePlan,
   FeeType,
   InventoryItem,
@@ -12,6 +14,10 @@ import type {
   Paginated,
   Payment,
   Payout,
+  RazorpayConfig,
+  RazorpayOrder,
+  RazorpayVerifyPayload,
+  RazorpayVerifyResult,
   Student,
   StudentFeeSummary,
   Teacher,
@@ -30,6 +36,13 @@ export const students = {
     form.append("photo", file);
     return api.patchForm<Student>(`/students/${id}/`, form);
   },
+  importCsv: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.postForm<ImportResult>("/students/import/", form);
+  },
+  templateUrl: () => api.fileUrl("/students/import-template/"),
+  exportUrl: (fmt: string) => api.fileUrl(`/students/export/?fmt=${fmt}`),
 };
 
 export const fees = {
@@ -64,6 +77,9 @@ export const invoices = {
 export const collections = {
   stats: () => api.get<CollectionStats>("/collections/stats/"),
   dashboard: () => api.get<CollectionDashboard>("/collections/dashboard/"),
+  defaulters: () => api.get<DefaulterReport>("/collections/defaulters/"),
+  defaultersExportUrl: (fmt: string) => api.fileUrl(`/collections/defaulters/?fmt=${fmt}`),
+  paymentsExportUrl: (fmt: string) => api.fileUrl(`/payments/export/?fmt=${fmt}`),
 };
 
 export const finance = {
@@ -81,6 +97,14 @@ export const payments = {
     paid_at?: string;
     idempotency_key?: string;
   }) => api.post("/payments/", body),
+};
+
+export const razorpay = {
+  config: () => api.get<RazorpayConfig>("/payments/razorpay/config/"),
+  createOrder: (invoice: number) =>
+    api.post<RazorpayOrder>("/payments/razorpay/order/", { invoice }),
+  verify: (payload: RazorpayVerifyPayload) =>
+    api.post<RazorpayVerifyResult>("/payments/razorpay/verify/", payload),
 };
 
 export const teachers = {

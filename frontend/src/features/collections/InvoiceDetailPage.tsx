@@ -1,6 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { invoices, payments, settings, students } from "@/api/resources";
+import { invoices, payments, razorpay, settings, students } from "@/api/resources";
+import { ApiError } from "@/api/client";
+import type { Invoice } from "@/api/types";
+import { Toast } from "@/components/form";
+import { loadRazorpay } from "@/lib/razorpay";
+import { log } from "@/lib/logger";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 
@@ -34,9 +40,97 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export function InvoiceDetailPage() {
   const { id = "" } = useParams();
+  const queryClient = useQueryClient();
 
   const invoiceQ = useQuery({ queryKey: ["invoice", id], queryFn: () => invoices.get(id) });
   const inv = invoiceQ.data;
+
+  const razorpayConfigQ = useQuery({
+    queryKey: ["razorpay-config"],
+    queryFn: () => razorpay.config(),
+  });
+
+  const [paying, setPaying] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+
+  async function payOnline(invoice: Invoice) {
+    setPaying(true);
+    setToast(null);
+    try {
+      const ready = await loadRazorpay();
+      if (!ready || !window.Razorpay) {
+        setToast({ message: "Could not load the payment gateway. Please retry.", tone: "error" });
+        log.warn("Razorpay checkout unavailable", { action: "razorpay_pay", entity: invoice.id });
+        return;
+      }
+
+      const order = await razorpay.createOrder(invoice.id);
+      log.info("Razorpay order created", {
+        action: "razorpay_order",
+        entity: invoice.id,
+        method: order.order_id,
+      });
+
+      const rzp = new window.Razorpay({
+        key: order.key_id,
+        order_id: order.order_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Fee Ledger",
+        description: invoice.invoice_number,
+        theme: { color: "#2563EB" },
+        handler: (resp) => {
+          void (async () => {
+            try {
+              const result = await razorpay.verify({
+                invoice: invoice.id,
+                razorpay_order_id: resp.razorpay_order_id,
+                razorpay_payment_id: resp.razorpay_payment_id,
+                razorpay_signature: resp.razorpay_signature,
+              });
+              log.info("Razorpay payment verified", {
+                action: "razorpay_verify",
+                entity: invoice.id,
+                method: String(result.payment_id),
+              });
+              await queryClient.invalidateQueries({ queryKey: ["invoice", id] });
+              await queryClient.invalidateQueries({ queryKey: ["invoice-payments", id] });
+              setToast({ message: "Payment received. Receipt updated.", tone: "success" });
+            } catch (err) {
+              const detail = err instanceof ApiError ? err.detail : "Verification failed.";
+              log.error("Razorpay verification failed", {
+                action: "razorpay_verify",
+                entity: invoice.id,
+              });
+              setToast({ message: detail, tone: "error" });
+            }
+          })();
+        },
+      });
+
+      rzp.on("payment.failed", (resp) => {
+        log.warn("Razorpay payment failed", {
+          action: "razorpay_pay",
+          entity: invoice.id,
+          method: resp.error.code,
+        });
+        setToast({ message: `Payment failed: ${resp.error.description}`, tone: "error" });
+      });
+
+      rzp.open();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        log.warn("Razorpay not configured", { action: "razorpay_pay", entity: invoice.id });
+        setToast({ message: "Online payments are not configured for this school.", tone: "error" });
+      } else {
+        const detail = err instanceof ApiError ? err.detail : "Could not start the payment.";
+        log.error("Razorpay checkout error", { action: "razorpay_pay", entity: invoice.id });
+        setToast({ message: detail, tone: "error" });
+      }
+    } finally {
+      setPaying(false);
+    }
+  }
 
   const studentQ = useQuery({
     queryKey: ["invoice-student", inv?.student],
@@ -59,6 +153,7 @@ export function InvoiceDetailPage() {
   const discountPct =
     Number(inv.subtotal) > 0 ? Math.round((Number(inv.discount_amount) / Number(inv.subtotal)) * 100) : 0;
   const isPaid = inv.status === "paid";
+  const canPayOnline = Boolean(razorpayConfigQ.data?.enabled) && Number(inv.balance) > 0;
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -66,6 +161,15 @@ export function InvoiceDetailPage() {
       <div className="flex items-center justify-between print:hidden">
         <h1 className="text-xl font-bold text-brand">{school?.name ?? "Fee Ledger"}</h1>
         <div className="flex gap-2">
+          {canPayOnline && (
+            <button
+              onClick={() => void payOnline(inv)}
+              disabled={paying}
+              className="rounded-xl bg-brand-gradient px-4 py-2 text-sm font-semibold text-white hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {paying ? "Opening…" : "💳 Pay Online"}
+            </button>
+          )}
           <button onClick={() => window.print()} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark">
             🖨 Print Receipt
           </button>
@@ -74,6 +178,12 @@ export function InvoiceDetailPage() {
           </button>
         </div>
       </div>
+
+      {toast && (
+        <div className="print:hidden">
+          <Toast message={toast.message} tone={toast.tone} />
+        </div>
+      )}
 
       {/* Receipt */}
       <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">

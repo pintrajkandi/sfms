@@ -184,3 +184,73 @@ def collection_dashboard(*, months: int = 12) -> dict:
 
 def _q_s(v) -> str:
     return str(_q(v))
+
+
+def _bucket(days: int) -> str:
+    if days <= 0:
+        return "current"
+    if days <= 30:
+        return "1-30"
+    if days <= 60:
+        return "31-60"
+    if days <= 90:
+        return "61-90"
+    return "90+"
+
+
+def defaulter_report() -> dict:
+    """Who owes what, with aging buckets by oldest overdue due-date."""
+    today = date.today()
+    unpaid = (
+        Invoice.objects.exclude(status=InvoiceStatus.CANCELLED)
+        .annotate(bal=F("total") - F("amount_paid"))
+        .filter(bal__gt=0)
+        .select_related("student")
+    )
+
+    by_student: dict[int, dict] = {}
+    for inv in unpaid:
+        row = by_student.setdefault(
+            inv.student_id,
+            {
+                "student": inv.student.full_name,
+                "student_id": inv.student.student_id,
+                "grade": inv.student.grade,
+                "outstanding": ZERO,
+                "oldest_due": None,
+                "invoices": 0,
+            },
+        )
+        row["outstanding"] += inv.bal
+        row["invoices"] += 1
+        if inv.due_date and (row["oldest_due"] is None or inv.due_date < row["oldest_due"]):
+            row["oldest_due"] = inv.due_date
+
+    aging = {"current": ZERO, "1-30": ZERO, "31-60": ZERO, "61-90": ZERO, "90+": ZERO}
+    defaulters = []
+    for row in by_student.values():
+        oldest = row["oldest_due"]
+        days = (today - oldest).days if oldest and oldest < today else 0
+        bucket = _bucket(days)
+        aging[bucket] += row["outstanding"]
+        defaulters.append(
+            {
+                "student": row["student"],
+                "student_id": row["student_id"],
+                "grade": row["grade"],
+                "outstanding": _q_s(row["outstanding"]),
+                "days_overdue": days,
+                "oldest_due": oldest.isoformat() if oldest else None,
+                "bucket": bucket,
+                "invoices": row["invoices"],
+            }
+        )
+    defaulters.sort(key=lambda d: d["days_overdue"], reverse=True)
+
+    total = sum((Decimal(d["outstanding"]) for d in defaulters), ZERO)
+    return {
+        "defaulters": defaulters,
+        "aging": {k: _q_s(v) for k, v in aging.items()},
+        "total_outstanding": _q_s(total),
+        "count": len(defaulters),
+    }

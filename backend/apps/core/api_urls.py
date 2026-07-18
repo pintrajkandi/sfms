@@ -1,7 +1,7 @@
 """Aggregate tenant-scoped API router (mounted at /api/v1/)."""
 
 from django.http import JsonResponse
-from django.urls import path
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.api import (
@@ -19,8 +19,12 @@ from apps.accounts.api import (
 from apps.collections.views import (
     CollectionDashboardView,
     CollectionStatsView,
+    DefaultersView,
     InvoiceViewSet,
     PaymentViewSet,
+    RazorpayConfigView,
+    RazorpayOrderView,
+    RazorpayVerifyView,
 )
 from apps.core.logging_api import ClientLogView
 from apps.expenses.views import ExpenseViewSet
@@ -80,5 +84,16 @@ urlpatterns = [
     path("finance/dashboard/", DashboardView.as_view(), name="finance-dashboard"),
     path("collections/stats/", CollectionStatsView.as_view(), name="collection-stats"),
     path("collections/dashboard/", CollectionDashboardView.as_view(), name="collection-dashboard"),
+    path("collections/defaulters/", DefaultersView.as_view(), name="collection-defaulters"),
+    # Razorpay online payments (tenant-scoped; the webhook lives in urls_public).
+    path(
+        "payments/razorpay/config/",
+        RazorpayConfigView.as_view(),
+        name="razorpay-config",
+    ),
+    path("payments/razorpay/order/", RazorpayOrderView.as_view(), name="razorpay-order"),
+    path("payments/razorpay/verify/", RazorpayVerifyView.as_view(), name="razorpay-verify"),
+    # Parent portal (OTP-authenticated, no staff session) — filled in by apps.portal.
+    path("portal/", include("apps.portal.urls")),
     *router.urls,
 ]

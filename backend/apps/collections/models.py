@@ -21,6 +21,7 @@ class PaymentMethod(models.TextChoices):
     PAYPAL = "paypal", "PayPal"
     UPI = "upi", "UPI"
     CHEQUE = "cheque", "Cheque"
+    RAZORPAY = "razorpay", "Razorpay"
 
 
 class Invoice(TimeStampedModel):

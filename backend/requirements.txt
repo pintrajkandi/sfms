@@ -24,6 +24,9 @@ openpyxl>=3.1
 # Auth (Auth0 JWT validation)
 pyjwt[crypto]>=2.9
 
+# Payments (Razorpay gateway + webhook reconciliation)
+razorpay>=1.4
+
 # Monitoring
 sentry-sdk>=2.13
 

@@ -15,9 +15,11 @@ import { InvoicesListPage } from "@/features/collections/InvoicesListPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { SubmitExpensePage } from "@/features/expenses/SubmitExpensePage";
 import { FinanceDashboard } from "@/features/finance/FinanceDashboard";
+import { DefaultersPage } from "@/features/reports/DefaultersPage";
 import { AddInventoryPage } from "@/features/inventory/AddInventoryPage";
 import { InventoryListPage } from "@/features/inventory/InventoryListPage";
 import { OnboardingGate } from "@/features/onboarding/OnboardingGate";
+import { ParentPortal } from "@/features/parent/ParentPortal";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AddTeacherPage } from "@/features/staff/AddTeacherPage";
 import { TeacherPayoutPage } from "@/features/staff/TeacherPayoutPage";
@@ -36,6 +38,8 @@ export const router = createBrowserRouter([
       { path: "/reset-password", element: <ResetPasswordScreen /> },
       { path: "/auth/callback", element: <Auth0Callback /> },
       { path: "/verify-email", element: <VerifyEmailScreen /> },
+      // Public parent portal — OUTSIDE RequireAuth/OnboardingGate (parents are not staff).
+      { path: "/parent", element: <ParentPortal /> },
       {
         element: <RequireAuth />,
         children: [
@@ -60,6 +64,7 @@ export const router = createBrowserRouter([
                   { path: "inventory", element: <InventoryListPage /> },
                   { path: "inventory/new", element: <AddInventoryPage /> },
                   { path: "finance", element: <FinanceDashboard /> },
+                  { path: "reports", element: <DefaultersPage /> },
                   { path: "settings", element: <SettingsPage /> },
                 ],
               },

@@ -1,18 +1,29 @@
+import json
 import uuid
+from decimal import Decimal
 
+from django.conf import settings
+from django.db import connection
+from django_tenants.utils import schema_context
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.export import export_response
+from apps.core.logging import ctx, get_logger
 from apps.core.services import ServiceError
 
+from . import gateway
 from .models import Invoice, Payment
-from .selectors import collection_dashboard, collection_stats
+from .selectors import collection_dashboard, collection_stats, defaulter_report
 from .serializers import InvoiceSerializer, PaymentSerializer
 from .services import create_invoice, record_payment
 from .tasks import generate_invoice_pdf
+
+log = get_logger("collections.views")
 
 
 class CollectionStatsView(APIView):
@@ -27,6 +38,40 @@ class CollectionDashboardView(APIView):
 
     def get(self, request):
         return Response(collection_dashboard())
+
+
+class DefaultersView(APIView):
+    """Defaulter / aging report — JSON, or CSV/XLSX with ?format=."""
+
+    def get(self, request):
+        report = defaulter_report()
+        fmt = request.query_params.get("fmt")
+        if fmt in ("csv", "xlsx"):
+            headers = [
+                "Student",
+                "Student ID",
+                "Grade",
+                "Outstanding",
+                "Days Overdue",
+                "Oldest Due",
+                "Bucket",
+                "Invoices",
+            ]
+            rows = [
+                [
+                    d["student"],
+                    d["student_id"],
+                    d["grade"],
+                    d["outstanding"],
+                    d["days_overdue"],
+                    d["oldest_due"],
+                    d["bucket"],
+                    d["invoices"],
+                ]
+                for d in report["defaulters"]
+            ]
+            return export_response(fmt, "defaulters", headers, rows)
+        return Response(report)
 
 
 class InvoiceViewSet(viewsets.ModelViewSet):
@@ -70,11 +115,41 @@ class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
 
     def get_queryset(self):
-        qs = Payment.objects.select_related("invoice")
+        qs = Payment.objects.select_related("invoice__student")
         invoice = self.request.query_params.get("invoice")
         if invoice:
             qs = qs.filter(invoice_id=invoice)
         return qs
+
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        fmt = request.query_params.get("fmt", "csv")
+        headers = [
+            "Date",
+            "Student",
+            "Grade",
+            "Fee Type",
+            "Amount",
+            "Method",
+            "Reference",
+            "Invoice",
+            "Status",
+        ]
+        rows = [
+            [
+                p.paid_at.date().isoformat(),
+                p.invoice.student.full_name,
+                p.invoice.student.grade,
+                (p.invoice.lines.first().fee_type.name if p.invoice.lines.exists() else ""),
+                str(p.amount),
+                p.method,
+                p.reference,
+                p.invoice.invoice_number,
+                p.invoice.status,
+            ]
+            for p in self.get_queryset().order_by("-paid_at")
+        ]
+        return export_response(fmt, "payments", headers, rows)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -95,3 +170,219 @@ class PaymentViewSet(viewsets.ModelViewSet):
             raise ValidationError(str(exc)) from exc
         out = self.get_serializer(payment)
         return Response(out.data, status=status.HTTP_201_CREATED)
+
+
+# --------------------------------------------------------------------------- #
+# Razorpay online-payment endpoints (tenant-scoped). Views stay thin — signature
+# checks and order creation live in apps.collections.gateway; crediting the
+# invoice goes through record_payment so it is idempotent + auditable.
+# --------------------------------------------------------------------------- #
+class RazorpayConfigView(APIView):
+    """Public config for the checkout widget: is it enabled + the publishable key."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"enabled": gateway.razorpay_enabled(), "key_id": settings.RAZORPAY_KEY_ID})
+
+
+class RazorpayOrderView(APIView):
+    """Create a Razorpay order for an invoice's outstanding balance."""
+
+    def post(self, request):
+        if not gateway.razorpay_enabled():
+            return Response(
+                {"detail": "Online payments not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        invoice = _get_invoice_or_400(request.data.get("invoice"))
+        amount = invoice.balance
+        if amount <= 0:
+            raise ValidationError("Invoice has no outstanding balance.")
+
+        # notes carry the tenant schema so the (tenant-less) webhook can reconcile.
+        notes = {"schema": connection.schema_name, "invoice": invoice.id}
+        try:
+            order = gateway.create_order(amount=amount, receipt=invoice.invoice_number, notes=notes)
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(
+            {
+                "order_id": order["id"],
+                "amount": order["amount"],  # paise (int)
+                "currency": "INR",
+                "key_id": settings.RAZORPAY_KEY_ID,
+                "invoice": invoice.id,
+            }
+        )
+
+
+class RazorpayVerifyView(APIView):
+    """Verify a completed client-side checkout and record the payment."""
+
+    def post(self, request):
+        if not gateway.razorpay_enabled():
+            return Response(
+                {"detail": "Online payments not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        data = request.data
+        invoice = _get_invoice_or_400(data.get("invoice"))
+        order_id = data.get("razorpay_order_id", "")
+        payment_id = data.get("razorpay_payment_id", "")
+        signature = data.get("razorpay_signature", "")
+        if not (order_id and payment_id and signature):
+            raise ValidationError("Missing Razorpay verification parameters.")
+
+        ok = gateway.verify_payment_signature(
+            {
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": signature,
+            }
+        )
+        if not ok:
+            return Response(
+                {"detail": "Invalid payment signature."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Already reconciled (e.g. the webhook beat us to it, or a double-submit):
+        # return the existing payment without re-crediting. Idempotency lives in
+        # record_payment, but the balance may now be 0, so short-circuit here.
+        payment = Payment.objects.filter(idempotency_key=payment_id).first()
+        if payment is None:
+            try:
+                payment = record_payment(
+                    invoice=invoice,
+                    amount=invoice.balance,
+                    method="razorpay",
+                    idempotency_key=payment_id,
+                    reference=payment_id,
+                    actor=request.user,
+                )
+            except ServiceError as exc:
+                raise ValidationError(str(exc)) from exc
+        invoice.refresh_from_db()
+        return Response(
+            {
+                "status": "recorded",
+                "payment_id": payment.id,
+                "invoice_status": invoice.status,
+            }
+        )
+
+
+def _get_invoice_or_400(invoice_id) -> Invoice:
+    if not invoice_id:
+        raise ValidationError("invoice is required.")
+    invoice = Invoice.objects.filter(pk=invoice_id).first()
+    if invoice is None:
+        raise ValidationError("Invoice not found.")
+    return invoice
+
+
+class RazorpayWebhookView(APIView):
+    """
+    Auto-reconciliation endpoint (PUBLIC schema — Razorpay hits one host with no
+    tenant subdomain). Verifies the webhook signature, then on `payment.captured`
+    reads the tenant schema + invoice id from the order/payment `notes`, switches
+    into that schema and records the payment via the idempotent record_payment.
+
+    The idempotency_key is the Razorpay payment id, so the webhook and the
+    client-side verify call are safe to both fire — only one Payment is created.
+    Returns 200 for any valid signature so Razorpay stops retrying; 400 only on a
+    bad signature or unconfigured secret.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        if not gateway.razorpay_enabled() or not settings.RAZORPAY_WEBHOOK_SECRET:
+            log.warning(
+                "razorpay webhook received but gateway not configured",
+                **ctx(action="razorpay_webhook"),
+            )
+            return Response(
+                {"detail": "Online payments not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        body = request.body  # raw bytes — required for signature verification
+        signature = request.META.get("HTTP_X_RAZORPAY_SIGNATURE", "")
+        try:
+            valid = gateway.verify_webhook_signature(body, signature)
+        except ServiceError:
+            return Response(
+                {"detail": "Online payments not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if not valid:
+            log.warning(
+                "razorpay webhook signature rejected",
+                **ctx(action="razorpay_webhook"),
+            )
+            return Response({"detail": "Invalid signature."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            log.warning("razorpay webhook body not JSON", **ctx(action="razorpay_webhook"))
+            return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+        if payload.get("event") != "payment.captured":
+            # Signature was valid; nothing to do for other events. 200 stops retries.
+            return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+        entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
+        notes = entity.get("notes") or {}
+        schema = notes.get("schema")
+        invoice_id = notes.get("invoice")
+        payment_id = entity.get("id", "")
+        amount_paise = entity.get("amount")
+
+        if not (schema and invoice_id and payment_id and amount_paise is not None):
+            log.warning(
+                "razorpay webhook missing reconciliation notes payment=%s",
+                payment_id or "-",
+                **ctx(action="razorpay_webhook"),
+            )
+            return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+        amount = Decimal(amount_paise) / Decimal(100)
+        try:
+            with schema_context(schema):
+                invoice = Invoice.objects.filter(pk=invoice_id).first()
+                if invoice is None:
+                    log.warning(
+                        "razorpay webhook invoice not found invoice=%s",
+                        invoice_id,
+                        **ctx(action="razorpay_webhook"),
+                    )
+                    return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+                payment = record_payment(
+                    invoice=invoice,
+                    amount=amount,
+                    method="razorpay",
+                    idempotency_key=payment_id,
+                    reference=payment_id,
+                )
+        except ServiceError as exc:
+            # e.g. amount exceeds balance because client-verify already credited it.
+            log.warning(
+                "razorpay webhook reconcile skipped invoice=%s reason=%s",
+                invoice_id,
+                exc,
+                **ctx(action="razorpay_webhook"),
+            )
+            return Response({"status": "skipped"}, status=status.HTTP_200_OK)
+
+        log.info(
+            "razorpay webhook reconciled invoice=%s payment=%s amount=%s",
+            invoice_id,
+            payment_id,
+            amount,
+            **ctx(entity=payment.id, action="razorpay_webhook"),
+        )
+        return Response({"status": "reconciled"}, status=status.HTTP_200_OK)

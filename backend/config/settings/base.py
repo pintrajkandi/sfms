@@ -56,6 +56,7 @@ TENANT_APPS = [
     "apps.inventory",
     "apps.finance",
     "apps.notifications",
+    "apps.portal",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [a for a in TENANT_APPS if a not in SHARED_APPS]
@@ -223,6 +224,47 @@ DEFAULT_CURRENCY = env("DEFAULT_CURRENCY", default="USD")
 AUTH0_DOMAIN = env("AUTH0_DOMAIN", default="")
 AUTH0_AUDIENCE = env("AUTH0_AUDIENCE", default="")
 AUTH0_EMAIL_CLAIM = env("AUTH0_EMAIL_CLAIM", default="email")
+
+# --------------------------------------------------------------------------- #
+# Razorpay (optional online payment gateway + auto-reconciliation). When
+# RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET are set the /payments/razorpay/ endpoints
+# and the webhook become active; otherwise they degrade to a 503. Never log the
+# secret or webhook secret. See apps.collections.gateway.
+# --------------------------------------------------------------------------- #
+RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
+RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
+RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
+# Online payments are available only when both key id and secret are set. Read
+# via apps.collections.gateway.razorpay_enabled() (settings only exposes
+# UPPERCASE names, so the check lives with the gateway, not here).
+
+# --------------------------------------------------------------------------- #
+# WhatsApp (MSG91) — parent receipts / reminders / OTP. Blank = disabled; the
+# messaging layer falls back to logging the message (so OTPs are visible in dev).
+# Enabled check lives in apps.notifications.messaging.whatsapp_enabled().
+# --------------------------------------------------------------------------- #
+MSG91_WHATSAPP_AUTHKEY = env("MSG91_WHATSAPP_AUTHKEY", default="")
+MSG91_WHATSAPP_NUMBER = env("MSG91_WHATSAPP_NUMBER", default="")  # integrated WA number
+MSG91_WHATSAPP_NAMESPACE = env("MSG91_WHATSAPP_NAMESPACE", default="")
+
+# SMS (MSG91). Blank = disabled; the messaging layer logs the message (dev fallback).
+# Enabled check lives in apps.notifications.messaging.sms_enabled().
+MSG91_SMS_AUTHKEY = env("MSG91_SMS_AUTHKEY", default="")
+MSG91_SMS_SENDER_ID = env("MSG91_SMS_SENDER_ID", default="")  # 6-char DLT sender id
+MSG91_SMS_TEMPLATE_ID = env("MSG91_SMS_TEMPLATE_ID", default="")  # DLT-approved template
+
+# --------------------------------------------------------------------------- #
+# Staged fee reminders — days BEFORE the due date to nudge (T-N), plus a
+# recurring cadence once overdue. Read by apps.notifications.tasks.
+# --------------------------------------------------------------------------- #
+FEE_REMINDER_DAYS_BEFORE = env.list("FEE_REMINDER_DAYS_BEFORE", cast=int, default=[7, 3, 0])
+FEE_REMINDER_OVERDUE_EVERY_DAYS = env.int("FEE_REMINDER_OVERDUE_EVERY_DAYS", default=7)
+
+# --------------------------------------------------------------------------- #
+# Parent portal — OTP + short-lived signed access token (no parent User model).
+# --------------------------------------------------------------------------- #
+PARENT_OTP_TTL = env.int("PARENT_OTP_TTL", default=300)  # seconds
+PARENT_TOKEN_TTL = env.int("PARENT_TOKEN_TTL", default=1800)  # seconds
 
 # Base domain schools sign in from: <slug>.<TENANT_BASE_DOMAIN>.
 # Dev uses ".localhost" (browsers resolve *.localhost to 127.0.0.1); prod uses feeledger.app.

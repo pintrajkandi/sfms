@@ -109,5 +109,8 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   patchForm: <T>(path: string, form: FormData) => requestForm<T>(path, form),
+  postForm: <T>(path: string, form: FormData) => requestForm<T>(path, form, "POST"),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  /** Absolute URL for file downloads (auth via session cookie). */
+  fileUrl: (path: string) => `${apiBase()}${path}`,
 };

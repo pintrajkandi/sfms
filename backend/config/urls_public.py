@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path
 
+from apps.collections.views import RazorpayWebhookView
 from apps.core.logging_api import ClientLogView
 from apps.tenants.api import ResolveSchoolView, SignupView, SlugAvailabilityView
 
@@ -24,5 +25,12 @@ urlpatterns = [
         "api/v1/onboarding/slug-available/",
         SlugAvailabilityView.as_view(),
         name="onboarding-slug",
+    ),
+    # Razorpay webhook — single URL, no tenant subdomain; reconciles into the
+    # tenant schema carried in the order notes.
+    path(
+        "webhooks/razorpay/",
+        RazorpayWebhookView.as_view(),
+        name="razorpay-webhook",
     ),
 ]

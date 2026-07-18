@@ -41,6 +41,7 @@ const NAV = [
   { to: "/expenses/new", label: "Expenses", icon: DocIcon },
   { to: "/inventory", label: "Inventory", icon: BoxIcon },
   { to: "/finance", label: "Finance", icon: ChartIcon },
+  { to: "/reports", label: "Reports", icon: DocIcon },
   { to: "/settings", label: "Settings", icon: CogIcon },
 ];
 

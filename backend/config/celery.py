@@ -17,6 +17,12 @@ app.conf.beat_schedule = {
         "task": "apps.accounts.tasks.dispatch_pending_verifications",
         "schedule": 60 * 60.0,  # hourly sweep (per-user cooldown prevents spam)
     },
+    # Staged fee reminders (T-7 / T-3 / due / overdue). Runs daily so each stage
+    # is caught as an invoice reaches it; per-stage cache gates prevent re-sends.
+    "dispatch-fee-reminders": {
+        "task": "apps.notifications.tasks.dispatch_fee_reminders",
+        "schedule": 60 * 60 * 24.0,  # once daily
+    },
 }
 
 
