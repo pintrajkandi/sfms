@@ -16,11 +16,27 @@ from apps.core.export import export_response
 from apps.core.logging import ctx, get_logger
 from apps.core.services import ServiceError
 
-from . import gateway
-from .models import Invoice, Payment
+from . import banking, gateway
+from .gst import generate_einvoice
+from .models import BankStatement, BankStatementLine, Invoice, Payment, PaymentPlan
 from .selectors import collection_dashboard, collection_stats, defaulter_report
-from .serializers import InvoiceSerializer, PaymentSerializer
-from .services import create_invoice, record_payment
+from .serializers import (
+    BankStatementLineSerializer,
+    BankStatementSerializer,
+    CreditNoteSerializer,
+    EInvoiceSerializer,
+    InvoiceSerializer,
+    PaymentPlanSerializer,
+    PaymentSerializer,
+    RefundSerializer,
+)
+from .services import (
+    create_invoice,
+    create_payment_plan,
+    issue_credit_note,
+    record_payment,
+    record_refund,
+)
 from .tasks import generate_invoice_pdf
 
 log = get_logger("collections.views")
@@ -110,6 +126,85 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         generate_invoice_pdf.delay(self.get_object().id)
         return Response({"status": "queued"}, status=status.HTTP_202_ACCEPTED)
 
+    @action(detail=True, methods=["get", "post"], url_path="payment-plan")
+    def payment_plan(self, request, pk=None):
+        """GET the invoice's instalment plan, or POST to create one."""
+        invoice = self.get_object()
+        if request.method == "GET":
+            plan = PaymentPlan.objects.filter(invoice=invoice).first()
+            if plan is None:
+                return Response({"detail": "No payment plan."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(PaymentPlanSerializer(plan).data)
+
+        data = request.data
+        try:
+            plan = create_payment_plan(
+                invoice=invoice,
+                count=data.get("count"),
+                first_due_date=data.get("first_due_date"),
+                frequency=data.get("frequency", "monthly"),
+                schedule=data.get("schedule"),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(PaymentPlanSerializer(plan).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def refund(self, request, pk=None):
+        """Return cash to the payer (reduces amount_paid; idempotent)."""
+        invoice = self.get_object()
+        serializer = RefundSerializer(data={**request.data, "invoice": invoice.id})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            refund = record_refund(
+                invoice=invoice,
+                amount=data["amount"],
+                method=data["method"],
+                idempotency_key=data.get("idempotency_key") or uuid.uuid4().hex,
+                reason=data.get("reason", ""),
+                payment=data.get("payment"),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(RefundSerializer(refund).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="credit-note")
+    def credit_note(self, request, pk=None):
+        """Issue a credit note (reduces the bill; no cash movement)."""
+        invoice = self.get_object()
+        serializer = CreditNoteSerializer(data={**request.data, "invoice": invoice.id})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            note = issue_credit_note(
+                invoice=invoice,
+                amount=data["amount"],
+                kind=data.get("kind", "adjustment"),
+                reason=data.get("reason", ""),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(CreditNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get", "post"])
+    def einvoice(self, request, pk=None):
+        """GET the invoice's e-invoice (IRN/QR), or POST to register one."""
+        invoice = self.get_object()
+        if request.method == "GET":
+            ei = getattr(invoice, "einvoice", None)
+            if ei is None:
+                return Response({"detail": "No e-invoice."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(EInvoiceSerializer(ei).data)
+        try:
+            ei = generate_einvoice(invoice, actor=request.user)
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(EInvoiceSerializer(ei).data, status=status.HTTP_201_CREATED)
+
 
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
@@ -170,6 +265,77 @@ class PaymentViewSet(viewsets.ModelViewSet):
             raise ValidationError(str(exc)) from exc
         out = self.get_serializer(payment)
         return Response(out.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def bounce(self, request, pk=None):
+        """Dishonour a cheque payment: void it, reverse the credit, levy a charge."""
+        payment = self.get_object()
+        try:
+            bounce = banking.bounce_cheque(
+                payment=payment,
+                reason=request.data.get("reason", ""),
+                charge=request.data.get("charge"),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(
+            {
+                "status": "bounced",
+                "payment": payment.id,
+                "invoice": bounce.invoice_id,
+                "charge": str(bounce.charge),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class BankStatementViewSet(viewsets.ModelViewSet):
+    """
+    Import a bank statement (POST rows) and auto-reconcile credit lines to
+    recorded payments. Lines are exposed read-only for the unmatched worklist.
+    """
+
+    serializer_class = BankStatementSerializer
+
+    def get_queryset(self):
+        return BankStatement.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        rows = request.data.get("lines") or []
+        if not rows:
+            raise ValidationError("At least one statement line is required.")
+        try:
+            statement = banking.import_bank_statement(
+                label=request.data.get("label", "Statement"),
+                account_ref=request.data.get("account_ref", ""),
+                rows=rows,
+                actor=request.user,
+            )
+        except (KeyError, ServiceError) as exc:
+            raise ValidationError(f"Invalid statement rows: {exc}") from exc
+        return Response(
+            BankStatementSerializer(statement).data, status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=["post"])
+    def reconcile(self, request, pk=None):
+        result = banking.auto_reconcile(statement=self.get_object(), actor=request.user)
+        return Response(result)
+
+    @action(detail=False, methods=["post"], url_path="reconcile-all")
+    def reconcile_all(self, request):
+        return Response(banking.auto_reconcile(actor=request.user))
+
+    @action(detail=False, methods=["get"])
+    def lines(self, request):
+        qs = BankStatementLine.objects.select_related("statement", "payment")
+        state = request.query_params.get("status")
+        if state:
+            qs = qs.filter(status=state)
+        page = self.paginate_queryset(qs)
+        serializer = BankStatementLineSerializer(page or qs, many=True)
+        return self.get_paginated_response(serializer.data) if page else Response(serializer.data)
 
 
 # --------------------------------------------------------------------------- #

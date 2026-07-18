@@ -1,4 +1,5 @@
 """Per-tenant school settings & academic years (CLAUDE.md — School Settings)."""
+
 from django.conf import settings
 from django.db import models
 

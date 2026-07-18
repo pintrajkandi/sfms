@@ -57,7 +57,9 @@ def student_fee_summary(student) -> dict:
     fee_breakdown = []
     for row in agg.values():
         amount, ppaid = _q(row["amount"]), _q(row["paid"])
-        status = "paid" if ppaid >= amount and amount > ZERO else "partial" if ppaid > ZERO else "unpaid"
+        status = (
+            "paid" if ppaid >= amount and amount > ZERO else "partial" if ppaid > ZERO else "unpaid"
+        )
         fee_breakdown.append(
             {
                 "fee_type": row["fee_type"],
@@ -104,9 +106,7 @@ def collection_stats() -> dict:
         Payment.objects.filter(paid_at__date=date.today()).aggregate(s=Sum("amount"))["s"] or ZERO
     )
     total_students = Student.objects.alive().count()
-    paid_students = (
-        live.filter(status=InvoiceStatus.PAID).values("student").distinct().count()
-    )
+    paid_students = live.filter(status=InvoiceStatus.PAID).values("student").distinct().count()
     rate = float(collected / billed * 100) if billed > ZERO else 0.0
     return {
         "total_collected": str(_q(collected)),
@@ -137,7 +137,9 @@ def collection_dashboard(*, months: int = 12) -> dict:
 
     collected_by = {
         r["m"].strftime("%Y-%m"): r["s"]
-        for r in live.annotate(m=TruncMonth("issue_date")).values("m").annotate(s=Sum("amount_paid"))
+        for r in live.annotate(m=TruncMonth("issue_date"))
+        .values("m")
+        .annotate(s=Sum("amount_paid"))
     }
     billed_by = {
         r["m"].strftime("%Y-%m"): r["s"]
@@ -147,7 +149,9 @@ def collection_dashboard(*, months: int = 12) -> dict:
     for key in _month_keys(months):
         col = collected_by.get(key, ZERO)
         pend = (billed_by.get(key, ZERO)) - col
-        monthly.append({"month": key, "collected": _q_s(col), "pending": _q_s(pend if pend > ZERO else ZERO)})
+        monthly.append(
+            {"month": key, "collected": _q_s(col), "pending": _q_s(pend if pend > ZERO else ZERO)}
+        )
 
     lines = (
         InvoiceLine.objects.exclude(invoice__status=InvoiceStatus.CANCELLED)
@@ -179,7 +183,12 @@ def collection_dashboard(*, months: int = 12) -> dict:
         .order_by("due_date")[:6]
     ]
 
-    return {**collection_stats(), "monthly": monthly, "category_breakdown": category_breakdown, "upcoming": upcoming}
+    return {
+        **collection_stats(),
+        "monthly": monthly,
+        "category_breakdown": category_breakdown,
+        "upcoming": upcoming,
+    }
 
 
 def _q_s(v) -> str:

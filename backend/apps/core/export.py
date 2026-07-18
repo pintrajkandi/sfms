@@ -3,6 +3,7 @@ Tabular export helpers — CSV and XLSX (accountants live in Excel).
 
     return export_response("xlsx", "defaulters", ["Name", "Due"], rows)
 """
+
 from __future__ import annotations
 
 import csv

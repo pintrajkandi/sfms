@@ -17,8 +17,17 @@ from .services import (
 )
 
 _EXPORT_HEADERS = [
-    "Student ID", "First Name", "Last Name", "Grade", "Section",
-    "Program", "Email", "Phone", "Guardian", "Guardian Phone", "Status",
+    "Student ID",
+    "First Name",
+    "Last Name",
+    "Grade",
+    "Section",
+    "Program",
+    "Email",
+    "Phone",
+    "Guardian",
+    "Guardian Phone",
+    "Status",
 ]
 
 
@@ -67,8 +76,17 @@ class StudentViewSet(viewsets.ModelViewSet):
         fmt = request.query_params.get("fmt", "csv")
         rows = [
             [
-                s.student_id, s.first_name, s.last_name, s.grade, s.section,
-                s.program, s.email, s.phone, s.guardian_name, s.guardian_phone, s.status,
+                s.student_id,
+                s.first_name,
+                s.last_name,
+                s.grade,
+                s.section,
+                s.program,
+                s.email,
+                s.phone,
+                s.guardian_name,
+                s.guardian_phone,
+                s.status,
             ]
             for s in self.get_queryset()
         ]

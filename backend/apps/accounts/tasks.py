@@ -4,6 +4,7 @@ emails to unverified users across every tenant until they verify or the link
 expires. Rate-limited per user via the cooldown in services.py, so it never spams
 (and it self-heals: once SMTP is fixed, pending users get their email next sweep).
 """
+
 from __future__ import annotations
 
 from datetime import timedelta

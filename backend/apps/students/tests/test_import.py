@@ -1,4 +1,5 @@
 """Bulk CSV import (CLAUDE.md §8)."""
+
 import pytest
 
 from apps.students.models import Student

@@ -17,6 +17,7 @@ from apps.accounts.api import (
     VerifyEmailView,
 )
 from apps.collections.views import (
+    BankStatementViewSet,
     CollectionDashboardView,
     CollectionStatsView,
     DefaultersView,
@@ -26,10 +27,17 @@ from apps.collections.views import (
     RazorpayOrderView,
     RazorpayVerifyView,
 )
+from apps.core.audit_views import AuditLogViewSet
 from apps.core.logging_api import ClientLogView
 from apps.expenses.views import ExpenseViewSet
-from apps.fees.views import FeeCategoryViewSet, FeePlanViewSet, FeeTypeViewSet
-from apps.finance.views import DashboardView, LedgerEntryViewSet
+from apps.fees.views import (
+    DiscountRuleViewSet,
+    FeeCategoryViewSet,
+    FeePlanViewSet,
+    FeeTypeViewSet,
+    StudentDiscountViewSet,
+)
+from apps.finance.views import AccountingExportView, DashboardView, LedgerEntryViewSet
 from apps.inventory.views import InventoryItemViewSet
 from apps.schools.views import AcademicYearViewSet, SchoolSettingsViewSet
 from apps.staff.views import PayoutViewSet, TeacherViewSet
@@ -40,6 +48,8 @@ router.register("students", StudentViewSet, basename="student")
 router.register("fee-types", FeeTypeViewSet, basename="fee-type")
 router.register("fee-categories", FeeCategoryViewSet, basename="fee-category")
 router.register("fee-plans", FeePlanViewSet, basename="fee-plan")
+router.register("discount-rules", DiscountRuleViewSet, basename="discount-rule")
+router.register("student-discounts", StudentDiscountViewSet, basename="student-discount")
 router.register("invoices", InvoiceViewSet, basename="invoice")
 router.register("payments", PaymentViewSet, basename="payment")
 router.register("teachers", TeacherViewSet, basename="teacher")

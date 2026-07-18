@@ -3,6 +3,7 @@ Receives frontend log entries and prints them to the backend container's stdout
 so all activity (frontend + backend) shows up in `docker compose logs`, not just
 the browser console.
 """
+
 from __future__ import annotations
 
 from rest_framework.permissions import AllowAny

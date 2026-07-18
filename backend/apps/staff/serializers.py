@@ -55,9 +55,21 @@ class PayoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payout
         fields = (
-            "id", "teacher", "teacher_name", "pay_type", "pay_period",
-            "base_amount", "bonus_amount", "deductions", "net_amount",
-            "currency", "payment_method", "notes", "status", "approvals", "created_at",
+            "id",
+            "teacher",
+            "teacher_name",
+            "pay_type",
+            "pay_period",
+            "base_amount",
+            "bonus_amount",
+            "deductions",
+            "net_amount",
+            "currency",
+            "payment_method",
+            "notes",
+            "status",
+            "approvals",
+            "created_at",
         )
         read_only_fields = ("net_amount", "status", "created_at")
 

@@ -69,9 +69,7 @@ def test_payment_serializer_paid_at_optional(tenant_ctx):
 
     student, ft = _student(), _fee_type()
     inv = create_invoice(student=student, lines=[{"fee_type": ft, "unit_price": "100.00"}])
-    serializer = PaymentSerializer(
-        data={"invoice": inv.id, "amount": "100.00", "method": "paypal"}
-    )
+    serializer = PaymentSerializer(data={"invoice": inv.id, "amount": "100.00", "method": "paypal"})
     assert serializer.is_valid(), serializer.errors  # paid_at optional, paypal valid
 
 

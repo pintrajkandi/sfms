@@ -261,6 +261,21 @@ FEE_REMINDER_DAYS_BEFORE = env.list("FEE_REMINDER_DAYS_BEFORE", cast=int, defaul
 FEE_REMINDER_OVERDUE_EVERY_DAYS = env.int("FEE_REMINDER_OVERDUE_EVERY_DAYS", default=7)
 
 # --------------------------------------------------------------------------- #
+# GST e-invoicing (India, optional). When GST_EINVOICE_BASE_URL + API creds are
+# set, e-invoices are registered with the IRP for a real IRN/QR; otherwise the
+# service falls back to a deterministic mock IRN/QR (dev). Never log the API
+# password. Enabled check lives in apps.collections.gst.einvoice_enabled().
+# --------------------------------------------------------------------------- #
+GST_EINVOICE_BASE_URL = env("GST_EINVOICE_BASE_URL", default="")
+GST_EINVOICE_API_USER = env("GST_EINVOICE_API_USER", default="")
+GST_EINVOICE_API_PASSWORD = env("GST_EINVOICE_API_PASSWORD", default="")
+GST_EINVOICE_GSTIN = env("GST_EINVOICE_GSTIN", default="")  # supplier GSTIN
+GST_SUPPLIER_STATE = env("GST_SUPPLIER_STATE", default="")  # supplier state (place of supply)
+
+# Cheque-bounce handling: default charge levied on a dishonoured cheque.
+CHEQUE_BOUNCE_CHARGE = env("CHEQUE_BOUNCE_CHARGE", default="0")
+
+# --------------------------------------------------------------------------- #
 # Parent portal — OTP + short-lived signed access token (no parent User model).
 # --------------------------------------------------------------------------- #
 PARENT_OTP_TTL = env.int("PARENT_OTP_TTL", default=300)  # seconds

@@ -1,4 +1,5 @@
 """Signed, self-contained email-verification tokens (no DB table needed)."""
+
 from __future__ import annotations
 
 from django.conf import settings

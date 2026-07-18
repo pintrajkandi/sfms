@@ -12,6 +12,7 @@ from decimal import Decimal
 
 from django.db import transaction
 
+from apps.core.audit import record_audit
 from apps.core.logging import ctx, get_logger
 from apps.core.services import InvalidTransition
 
@@ -111,5 +112,12 @@ def transition_payout(*, payout: Payout, to_status: str, actor=None, note: str =
         target,
         payout.teacher.employee_id,
         **ctx(user=getattr(actor, "id", "-"), entity=payout.id, action="transition_payout"),
+    )
+    record_audit(
+        action="payout.transition",
+        entity=payout,
+        summary=f"Payout {payout.teacher.employee_id} {current} → {target}",
+        changes={"status": [str(current), str(target)]},
+        actor=actor,
     )
     return payout

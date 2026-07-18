@@ -73,3 +73,36 @@ class MoneyModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class AuditLog(models.Model):
+    """
+    User-facing "who changed what" trail (CLAUDE.md — Audit log). Tenant-scoped
+    (this app is in TENANT_APPS), so each school has its own immutable history.
+
+    Written by apps.core.audit.record_audit at the service layer — the same place
+    money math and workflow transitions happen — never from a view. `changes` is
+    an optional {field: [old, new]} diff; `summary` is the human-readable line.
+    """
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    actor = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    actor_label = models.CharField(max_length=200, blank=True)  # snapshot (user may be deleted)
+    action = models.CharField(max_length=64, db_index=True)  # e.g. "invoice.created"
+    entity_type = models.CharField(max_length=64, blank=True)  # e.g. "Invoice"
+    entity_id = models.CharField(max_length=64, blank=True)
+    summary = models.CharField(max_length=255, blank=True)
+    changes = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["entity_type", "entity_id"]),
+            models.Index(fields=["action", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.action} {self.entity_type}#{self.entity_id}"

@@ -1,4 +1,5 @@
 """Account email services — shared by signup, resend, the beat queue and admin."""
+
 from __future__ import annotations
 
 from django.core.cache import cache

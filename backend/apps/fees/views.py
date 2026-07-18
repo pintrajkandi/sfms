@@ -1,7 +1,13 @@
 from rest_framework import viewsets
 
-from .models import FeeCategory, FeePlan, FeeType
-from .serializers import FeeCategorySerializer, FeePlanSerializer, FeeTypeSerializer
+from .models import DiscountRule, FeeCategory, FeePlan, FeeType, StudentDiscount
+from .serializers import (
+    DiscountRuleSerializer,
+    FeeCategorySerializer,
+    FeePlanSerializer,
+    FeeTypeSerializer,
+    StudentDiscountSerializer,
+)
 
 
 class FeeCategoryViewSet(viewsets.ModelViewSet):
@@ -26,3 +32,36 @@ class FeePlanViewSet(viewsets.ModelViewSet):
         if grade:
             qs = qs.filter(grade__in=[grade, ""])
         return qs
+
+
+class DiscountRuleViewSet(viewsets.ModelViewSet):
+    """Scholarship / concession / sibling rules (soft-deleted, never hard)."""
+
+    serializer_class = DiscountRuleSerializer
+
+    def get_queryset(self):
+        qs = DiscountRule.objects.alive().select_related("fee_type")
+        kind = self.request.query_params.get("kind")
+        if kind:
+            qs = qs.filter(kind=kind)
+        return qs
+
+    def perform_destroy(self, instance):
+        instance.soft_delete()
+
+
+class StudentDiscountViewSet(viewsets.ModelViewSet):
+    """Awards of a rule to a student (scholarship grants, etc.)."""
+
+    serializer_class = StudentDiscountSerializer
+
+    def get_queryset(self):
+        qs = StudentDiscount.objects.select_related("rule", "student")
+        student = self.request.query_params.get("student")
+        if student:
+            qs = qs.filter(student_id=student)
+        return qs
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        serializer.save(awarded_by=user if getattr(user, "pk", None) else None)

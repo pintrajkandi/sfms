@@ -4,7 +4,19 @@ from rest_framework import serializers
 
 from apps.fees.models import FeeType
 
-from .models import Invoice, InvoiceLine, Payment
+from .models import (
+    AppliedDiscount,
+    BankStatement,
+    BankStatementLine,
+    CreditNote,
+    EInvoice,
+    Installment,
+    Invoice,
+    InvoiceLine,
+    Payment,
+    PaymentPlan,
+    Refund,
+)
 
 
 class InvoiceLineSerializer(serializers.ModelSerializer):
@@ -27,11 +39,135 @@ class InvoiceLineSerializer(serializers.ModelSerializer):
         read_only_fields = ("amount",)
 
 
+class InstallmentSerializer(serializers.ModelSerializer):
+    balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Installment
+        fields = (
+            "id",
+            "sequence",
+            "due_date",
+            "amount",
+            "amount_paid",
+            "balance",
+            "status",
+        )
+
+
+class PaymentPlanSerializer(serializers.ModelSerializer):
+    installments = InstallmentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PaymentPlan
+        fields = ("id", "invoice", "status", "installments", "created_at")
+        read_only_fields = fields
+
+
+class RefundSerializer(serializers.ModelSerializer):
+    idempotency_key = serializers.CharField(required=False)
+
+    class Meta:
+        model = Refund
+        fields = (
+            "id",
+            "invoice",
+            "payment",
+            "amount",
+            "currency",
+            "method",
+            "reason",
+            "status",
+            "idempotency_key",
+            "processed_by",
+            "created_at",
+        )
+        read_only_fields = ("currency", "status", "processed_by", "created_at")
+
+    def validate_idempotency_key(self, value):
+        return value or uuid.uuid4().hex
+
+
+class CreditNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CreditNote
+        fields = (
+            "id",
+            "invoice",
+            "credit_note_number",
+            "amount",
+            "currency",
+            "kind",
+            "reason",
+            "issued_by",
+            "created_at",
+        )
+        read_only_fields = ("credit_note_number", "currency", "issued_by", "created_at")
+
+
+class AppliedDiscountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppliedDiscount
+        fields = ("id", "rule", "code", "name", "kind", "amount")
+        read_only_fields = fields
+
+
+class EInvoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EInvoice
+        fields = (
+            "id",
+            "status",
+            "irn",
+            "ack_no",
+            "ack_date",
+            "signed_qr",
+            "taxable_value",
+            "cgst",
+            "sgst",
+            "igst",
+            "total_tax",
+            "error",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class BankStatementLineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankStatementLine
+        fields = (
+            "id",
+            "statement",
+            "txn_date",
+            "description",
+            "reference",
+            "amount",
+            "status",
+            "payment",
+        )
+        read_only_fields = ("status", "payment")
+
+
+class BankStatementSerializer(serializers.ModelSerializer):
+    line_count = serializers.IntegerField(source="lines.count", read_only=True)
+
+    class Meta:
+        model = BankStatement
+        fields = ("id", "label", "account_ref", "line_count", "imported_by", "created_at")
+        read_only_fields = ("imported_by", "created_at")
+
+
 class InvoiceSerializer(serializers.ModelSerializer):
     lines = InvoiceLineSerializer(many=True)
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     student_name = serializers.CharField(source="student.full_name", read_only=True)
     academic_year_label = serializers.SerializerMethodField()
+    payment_plan = PaymentPlanSerializer(read_only=True)
+    refunds = RefundSerializer(many=True, read_only=True)
+    credit_notes = CreditNoteSerializer(many=True, read_only=True)
+    applied_discounts = AppliedDiscountSerializer(many=True, read_only=True)
+    einvoice = EInvoiceSerializer(read_only=True)
 
     def get_academic_year_label(self, obj) -> str:
         return obj.academic_year.label if obj.academic_year_id else ""
@@ -51,11 +187,18 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "due_date",
             "subtotal",
             "discount_amount",
+            "adjustment_amount",
             "late_fee_amount",
             "total",
             "amount_paid",
             "balance",
             "lines",
+            "payment_plan",
+            "refunds",
+            "credit_notes",
+            "applied_discounts",
+            "einvoice",
+            "place_of_supply",
             "pdf",
             "created_at",
         )
@@ -63,6 +206,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "invoice_number",
             "status",
             "subtotal",
+            "adjustment_amount",
             "total",
             "amount_paid",
             "issue_date",

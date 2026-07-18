@@ -95,9 +95,7 @@ class Auth0LoginView(APIView):
             )
         except Exception:  # invalid / expired / wrong audience
             log.warning("auth0 token rejected", **ctx(action="auth0_login"))
-            return Response(
-                {"detail": "Invalid Auth0 token."}, status=status.HTTP_401_UNAUTHORIZED
-            )
+            return Response({"detail": "Invalid Auth0 token."}, status=status.HTTP_401_UNAUTHORIZED)
 
         email = claims.get(settings.AUTH0_EMAIL_CLAIM) or _auth0_userinfo_email(domain, token)
         if not email:

@@ -1,4 +1,5 @@
 """Defaulter / aging report (CLAUDE.md §8)."""
+
 from datetime import date, timedelta
 
 import pytest

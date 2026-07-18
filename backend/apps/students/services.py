@@ -39,18 +39,42 @@ def next_student_id() -> str:
 
 
 _IMPORT_FIELDS = [
-    "first_name", "last_name", "email", "phone", "gender", "date_of_birth",
-    "nationality", "grade", "section", "program", "guardian_name",
-    "guardian_relation", "guardian_phone", "guardian_email", "student_id",
+    "first_name",
+    "last_name",
+    "email",
+    "phone",
+    "gender",
+    "date_of_birth",
+    "nationality",
+    "grade",
+    "section",
+    "program",
+    "guardian_name",
+    "guardian_relation",
+    "guardian_phone",
+    "guardian_email",
+    "student_id",
 ]
 
 
 def import_template_rows() -> tuple[list[str], list[list[str]]]:
     """Headers + one example row for the downloadable import template."""
     example = [
-        "Emma", "Johnson", "emma@example.com", "+1 555 0100", "female", "2010-05-01",
-        "American", "Grade 9", "A", "Science", "Robert Johnson", "father",
-        "+1 555 0101", "robert@example.com", "",
+        "Emma",
+        "Johnson",
+        "emma@example.com",
+        "+1 555 0100",
+        "female",
+        "2010-05-01",
+        "American",
+        "Grade 9",
+        "A",
+        "Science",
+        "Robert Johnson",
+        "father",
+        "+1 555 0101",
+        "robert@example.com",
+        "",
     ]
     return _IMPORT_FIELDS, [example]
 

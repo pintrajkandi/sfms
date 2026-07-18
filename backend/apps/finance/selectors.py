@@ -4,6 +4,7 @@ Finance/accounts dashboard aggregation — cached per tenant (CLAUDE.md §5 cach
 Income is real fee **payments**; expenses are **Expense** records. This keeps the
 accounts view consistent with what's actually collected and spent.
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -13,7 +14,7 @@ from django.core.cache import cache
 from django.db.models import Sum
 from django.db.models.functions import TruncMonth
 
-from apps.collections.models import Payment
+from apps.collections.models import Payment, Refund
 from apps.core.models import ZERO
 from apps.expenses.models import Expense
 
@@ -46,14 +47,22 @@ def dashboard_overview(*, months: int = 6, use_cache: bool = True) -> dict:
 
     since = date.today() - timedelta(days=months * 31)
     pay = Payment.objects.filter(paid_at__date__gte=since)
+    # Processed refunds are cash out — they net against collected income.
+    refs = Refund.objects.filter(created_at__date__gte=since, status=Refund.Status.PROCESSED)
     exp = Expense.objects.filter(expense_date__gte=since)
 
-    total_income = pay.aggregate(s=Sum("amount"))["s"] or ZERO
+    gross_income = pay.aggregate(s=Sum("amount"))["s"] or ZERO
+    total_refunds = refs.aggregate(s=Sum("amount"))["s"] or ZERO
+    total_income = gross_income - total_refunds
     total_expense = exp.aggregate(s=Sum("amount"))["s"] or ZERO
     net = total_income - total_expense
 
-    inc_by_month = {
+    ref_by_month: dict[str, Decimal] = {
         r["m"].strftime("%Y-%m"): r["s"]
+        for r in refs.annotate(m=TruncMonth("created_at")).values("m").annotate(s=Sum("amount"))
+    }
+    inc_by_month = {
+        r["m"].strftime("%Y-%m"): r["s"] - ref_by_month.get(r["m"].strftime("%Y-%m"), ZERO)
         for r in pay.annotate(m=TruncMonth("paid_at")).values("m").annotate(s=Sum("amount"))
     }
     exp_by_month = {
@@ -96,6 +105,16 @@ def dashboard_overview(*, months: int = 6, use_cache: bool = True) -> dict:
                 "direction": "out",
             }
         )
+    for r in refs.select_related("invoice__student").order_by("-created_at")[:10]:
+        txns.append(
+            {
+                "title": getattr(r.invoice.student, "full_name", "Refund"),
+                "category": "Refund",
+                "date": r.created_at.date().isoformat(),
+                "amount": _q(r.amount),
+                "direction": "out",
+            }
+        )
     txns.sort(key=lambda t: t["date"], reverse=True)
 
     result = {
@@ -103,9 +122,9 @@ def dashboard_overview(*, months: int = 6, use_cache: bool = True) -> dict:
         "total_income": _q(total_income),
         "total_expense": _q(total_expense),
         "net_savings": _q(net),
-        "savings_rate_percent": round(float(net / total_income * 100), 1)
-        if total_income > ZERO
-        else 0.0,
+        "savings_rate_percent": (
+            round(float(net / total_income * 100), 1) if total_income > ZERO else 0.0
+        ),
         "monthly": monthly,
         "net_savings_trend": trend,
         "expense_breakdown": expense_breakdown,
