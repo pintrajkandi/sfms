@@ -17,8 +17,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.collections import gateway
-from apps.collections.models import Invoice, InvoiceStatus, Payment
+from apps.collections import gateway, mandates, signatures
+from apps.collections.models import Invoice, InvoiceStatus, Mandate, Payment
 from apps.collections.selectors import student_fee_summary
 from apps.collections.services import record_payment
 from apps.core.logging import ctx, get_logger
@@ -88,7 +88,11 @@ class PortalInvoicesView(_ParentView):
         student = self.get_student(request)
         if student is None:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
-        invoices = student.invoices.exclude(status=InvoiceStatus.CANCELLED).order_by("-created_at")
+        invoices = (
+            student.invoices.exclude(status=InvoiceStatus.CANCELLED)
+            .prefetch_related("payment_plan__installments")
+            .order_by("-created_at")
+        )
         payable = [
             {
                 "id": inv.id,
@@ -98,11 +102,101 @@ class PortalInvoicesView(_ParentView):
                 "balance": str(inv.balance),
                 "status": inv.status,
                 "due_date": inv.due_date,
+                "installments": _installments(inv),
             }
             for inv in invoices
             if inv.balance > ZERO
         ]
         return Response(payable)
+
+
+def _installments(invoice):
+    """Instalment schedule for the parent view, if a plan exists."""
+    plan = getattr(invoice, "payment_plan", None)
+    if plan is None:
+        return []
+    return [
+        {
+            "sequence": i.sequence,
+            "due_date": i.due_date,
+            "amount": str(i.amount),
+            "amount_paid": str(i.amount_paid),
+            "status": i.status,
+        }
+        for i in plan.installments.all()
+    ]
+
+
+class PortalAutopayView(_ParentView):
+    """UPI Autopay for a student: view the mandate, or set one up."""
+
+    def get(self, request):
+        student = self.get_student(request)
+        if student is None:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        m = Mandate.objects.filter(student=student).order_by("-created_at").first()
+        if m is None:
+            return Response({"mandate": None})
+        return Response({"mandate": _mandate_dict(m)})
+
+    def post(self, request):
+        student = self.get_student(request)
+        if student is None:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        if Mandate.objects.filter(student=student, status=Mandate.Status.ACTIVE).exists():
+            return Response(
+                {"detail": "Autopay is already active."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        max_amount = request.data.get("max_amount") or "10000"
+        mandate = mandates.create_mandate(student=student, max_amount=max_amount, currency="INR")
+        # In dev (no live gateway) there is no external authorisation step — activate
+        # so the parent sees Autopay working end-to-end.
+        if not gateway.razorpay_enabled():
+            mandates.activate_mandate(mandate)
+        mandate.refresh_from_db()
+        return Response({"mandate": _mandate_dict(mandate)}, status=status.HTTP_201_CREATED)
+
+
+def _mandate_dict(m) -> dict:
+    return {
+        "id": m.id,
+        "status": m.status,
+        "max_amount": str(m.max_amount),
+        "currency": m.currency,
+        "auth_url": m.auth_url,
+        "next_charge_on": m.next_charge_on,
+    }
+
+
+class PortalReceiptsView(_ParentView):
+    """Signed receipts for the student's payments (tamper-evident)."""
+
+    def get(self, request):
+        student = self.get_student(request)
+        if student is None:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        rows = []
+        payments = (
+            Payment.objects.filter(invoice__student=student, status=Payment.Status.RECORDED)
+            .select_related("invoice", "signing_key")
+            .order_by("-paid_at")[:50]
+        )
+        for p in payments:
+            verify = signatures.verify_receipt(p)
+            rows.append(
+                {
+                    "id": p.id,
+                    "invoice_number": p.invoice.invoice_number,
+                    "amount": str(p.amount),
+                    "currency": p.currency,
+                    "method": p.method,
+                    "paid_at": p.paid_at,
+                    "signed": verify["signed"],
+                    "valid": verify["valid"],
+                }
+            )
+        return Response(rows)
 
 
 def _owned_invoice(student, invoice_id):

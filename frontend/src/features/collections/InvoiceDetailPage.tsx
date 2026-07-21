@@ -227,9 +227,9 @@ export function InvoiceDetailPage() {
                 <p className="text-xs text-slate-500">Student ID: {student?.student_id ?? "—"}</p>
               </div>
             </div>
-            <Row label="Class / Grade" value={`${student?.grade || "—"}${student?.section ? ` — ${student.section}` : ""}`} />
+            <Row label="Class" value={`${student?.grade || "—"}${student?.section ? ` — ${student.section}` : ""}`} />
             <Row label="Academic Year" value={inv.academic_year_label || "—"} />
-            <Row label="Program" value={student?.program || "—"} />
+            <Row label="Section" value={student?.section || "—"} />
             <Row label="Status" value={<span className="capitalize">{student?.status || "—"}</span>} />
           </div>
 

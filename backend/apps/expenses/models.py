@@ -21,7 +21,7 @@ class Expense(TimeStampedModel):
     expense_date = models.DateField()
 
     amount = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     payment_method = models.CharField(max_length=32, blank=True)
     reimbursable = models.BooleanField(default=False)
 

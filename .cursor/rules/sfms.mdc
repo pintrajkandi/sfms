@@ -1,0 +1,118 @@
+---
+description: School Fee Management System (SFMS) — architecture + coding contract for Cursor
+globs:
+alwaysApply: true
+---
+
+# SFMS — Cursor Rules
+
+Multi-tenant **School Fee Management System** (SaaS). Each school is an isolated
+tenant. `CLAUDE.md` at the repo root is the full blueprint — this file is the
+distilled contract Cursor must follow when editing. When they disagree,
+`CLAUDE.md` wins; keep both in sync when structure changes.
+
+## Stack
+- **Backend:** Django + DRF + **django-tenants** (schema-per-tenant), PostgreSQL,
+  Redis (cache/sessions), Celery + RabbitMQ, MinIO (S3 storage), `cryptography`.
+- **Frontend:** React + TypeScript (strict) + Tailwind + Vite, React Query,
+  recharts. Path alias `@/` → `frontend/src/`.
+- Runs via `docker compose`. Backend tests: `pytest`; lint: `ruff` + `black`.
+
+## Non-negotiables (do not violate)
+1. **Tenant isolation.** Never cross a schema boundary for business data. Never
+   trust a tenant id from the request body — the tenant is the routed schema
+   (`connection.schema_name`, `request.tenant`). Cross-schema work uses
+   `schema_context()` / `tenant_context()` explicitly. Cache keys are
+   tenant-scoped (`apps.core.cache.tenant_key_func`) — don't hand-roll keys.
+2. **Money is `Decimal` end-to-end**, never `float`. Use `money_field()` +
+   persist a currency. Frontend: format via `@/lib/money`; never do currency
+   math with JS `number`.
+3. **Business logic lives in services**, not views/serializers. Views stay thin:
+   `models → services → serializers → viewsets → urls`. Money math, workflow
+   transitions, invoice/late-fee/discount/tax calc, payouts → service functions.
+4. **State machines** (invoice/payment status, payout approval, mandate) use
+   `TextChoices` enums with guarded transition functions — no free-form status
+   writes from views.
+5. **Idempotency** for payments/refunds/mandate-charges via a unique key.
+6. **Logging: exactly `info` / `warn` / `error`** via `apps.core.logging`
+   (`get_logger` + `ctx(...)`). Never log secrets/full PII (phone last-4, ids +
+   amounts only). Frontend uses `@/lib/logger` — no bare `console.log`.
+7. **RBAC:** per-action policy in `apps/accounts/permissions.py` (`POLICY` +
+   `RolePermission`). Guarded viewsets set `rbac_resource = "<name>"`. Admin
+   bypasses. `/auth/me/` returns the effective permission map for the UI.
+8. **External integrations are env-gated** with a dev fallback (mirror
+   `apps/collections/gateway.py`): a `*_enabled()` check reads settings; when
+   unset the code logs/mocks instead of failing. Applies to Razorpay, MSG91
+   (WhatsApp/SMS/email), GST e-invoicing IRP, and the Claude AI assistant.
+9. **Migrations:** one logical change each; never edit an applied migration.
+   Tenant-app migrations → `migrate_schemas --tenant`; shared (`apps.tenants`,
+   `apps.accounts` shared, admin) → `--shared`.
+10. **Auditing:** money/workflow/privacy/admin actions call
+    `apps.core.audit.record_audit(...)`. It never raises.
+
+## Backend layout (`backend/apps/`)
+- `tenants` — **SHARED/public only**: `Client`/`Domain`/`Plan`/`BackupRun`
+  registry, provisioning (`services.provision_school`), the **platform admin
+  console** (`admin_site.py` = superuser-only `PlatformAdminSite`; `admin.py`;
+  dashboard/ops/support views; `backups.py`, `offboarding.py`, `impersonation.py`,
+  `platform_stats.py`, `limits.py`).
+- `accounts` — custom `User` + `Role`, tenant auth API, team management, password
+  reset, impersonation endpoint. In **both** SHARED and TENANT apps.
+- `core` — base models (`TimeStampedModel`, `SoftDeleteModel`, `money_field`,
+  `AuditLog`), `audit.py`, `logging.py`, `middleware.py`, `cache.py`, `export.py`
+  (CSV/XLSX), pagination, search (tsvector/GIN), `api_urls.py` (the tenant API
+  router — register new routes here).
+- `schools` — `SchoolSettings` (branding, invoice, GST, payroll rates),
+  `AcademicYear`, rollover orchestration.
+- `students`, `fees` (types/plans + **discount rules**), `collections` (the money
+  core: invoices, payments, installments, refunds, credit notes, GST e-invoice,
+  bank reconciliation, cheque bounce, UPI mandates, receipt signatures,
+  predictive risk + AI assistant), `staff` (teachers + payouts + payroll),
+  `expenses`, `inventory`, `finance` (ledger + accounting export), `notifications`
+  (WhatsApp/SMS/reminders), `portal` (parent OTP portal), `privacy` (DPDP/FERPA/
+  GDPR: export/erasure/consent).
+
+Admin note: **tenant business models are NOT registered in Django admin** — their
+tables don't exist in the public schema. Only platform models live in
+`apps/tenants/admin.py` on `platform_admin`. Tenant admin.py files are
+intentionally empty.
+
+## Frontend layout (`frontend/src/`)
+- `api/client.ts` — session/CSRF `api.{get,post,patch,...}`; host-derived base
+  URL (never sends a tenant id). `api/resources.ts` — typed endpoint wrappers
+  (add new endpoints here). `api/types.ts` — response types (keep in sync with
+  DRF serializers). `api/portal.ts` — parent portal (`X-Parent-Token`, raw fetch).
+- `features/<module>/` — one folder per domain. `components/` shared primitives
+  (`Card`, `form.tsx`: `PageHeader`/`Labeled`/`Button`/`Select`/`TextInput`/
+  `Toast`). `routes/router.tsx` — routes; `components/AppShell.tsx` — nav (use
+  `adminOnly` + role filter for admin-only items).
+- Data fetching via **React Query**. Money via `@/lib/money`, dates via
+  `@/lib/dates`. Match the card-based indigo/violet Tailwind look.
+
+## Testing (required before "done")
+- Backend: `pytest` inside the `test` tenant schema via the `tenant_ctx` fixture.
+  Cover every service with money math or a workflow transition, plus tenant
+  isolation. Agents must NOT run pytest concurrently (test-DB race).
+- Frontend: `npx tsc --noEmit` must pass; `npm run build` should succeed.
+- Report real command output; don't claim green without running it.
+
+## Common commands (inside the backend container)
+```bash
+docker compose run --rm -e RUN_MIGRATIONS=0 backend sh -c \
+  "black -q apps && ruff check apps config && python manage.py check && pytest -q"
+docker compose run --rm backend python manage.py makemigrations <app>
+docker compose run --rm backend python manage.py migrate_schemas --shared   # public
+docker compose run --rm backend python manage.py migrate_schemas --tenant   # all schools
+# frontend
+cd frontend && npx tsc --noEmit && npm run build
+```
+
+## Gotchas
+- New deps in `package.json` need `docker compose exec frontend npm install`
+  (the container's node_modules is a stale anon volume) — a host build passing
+  doesn't mean the dev server has the dep.
+- psycopg3 does **not** expand a tuple for SQL `IN`; use `<> ALL(%s)` / `ANY(%s)`
+  with a list.
+- Adding a concrete model to `core` or `tenants` creates a migration — mind which
+  schema it lands in (SHARED vs TENANT).
+- New env vars: add to `.env.example` with a one-line comment.

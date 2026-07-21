@@ -1,9 +1,11 @@
 """Per-tenant school settings & academic years (CLAUDE.md — School Settings)."""
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 
-from apps.core.models import Currency, TimeStampedModel
+from apps.core.models import Currency, TimeStampedModel, money_field
 
 
 class SchoolSettings(TimeStampedModel):
@@ -58,6 +60,15 @@ class SchoolSettings(TimeStampedModel):
     instagram = models.CharField(max_length=200, blank=True)
     linkedin = models.CharField(max_length=200, blank=True)
 
+    # --- Payroll (statutory deduction rates; per-tenant, override the env defaults) ---
+    payroll_pf_rate = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal("0.12"))
+    payroll_pf_ceiling = money_field(default=Decimal("15000"))
+    payroll_esi_rate = models.DecimalField(
+        max_digits=6, decimal_places=4, default=Decimal("0.0075")
+    )
+    payroll_esi_threshold = money_field(default=Decimal("21000"))
+    payroll_professional_tax = money_field(default=Decimal("200"))
+
     # --- Notifications ---
     notify_due_reminders = models.BooleanField(default=True)
     notify_overdue = models.BooleanField(default=True)
@@ -81,3 +92,78 @@ class AcademicYear(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.label
+
+
+class SchoolClass(TimeStampedModel):
+    """A class/grade the admin manages (e.g. "Grade 1", "Class 10"). Feeds the
+    student class dropdown; `Student.grade` stores the chosen class name."""
+
+    name = models.CharField(max_length=60, unique=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "School classes"
+        ordering = ("order", "name")
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Section(TimeStampedModel):
+    """A section within a class (e.g. "A", "B"). Feeds the student section dropdown."""
+
+    school_class = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, related_name="sections")
+    name = models.CharField(max_length=30)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("school_class", "name")
+        constraints = [
+            models.UniqueConstraint(fields=["school_class", "name"], name="uniq_section_class_name")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.school_class.name} · {self.name}"
+
+
+class Department(TimeStampedModel):
+    """An admin-managed department (e.g. "Science", "Administration") used to tag
+    teachers. Feeds the teacher department dropdown."""
+
+    name = models.CharField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class SupportTicket(TimeStampedModel):
+    """A support request raised by school staff to the platform team."""
+
+    class Category(models.TextChoices):
+        BILLING = "billing", "Billing"
+        TECHNICAL = "technical", "Technical"
+        FEATURE = "feature", "Feature Request"
+        ACCOUNT = "account", "Account"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in_progress", "In Progress"
+        RESOLVED = "resolved", "Resolved"
+
+    subject = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    message = models.TextField()
+    contact_email = models.EmailField(blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.subject} ({self.status})"

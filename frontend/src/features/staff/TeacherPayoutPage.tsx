@@ -1,33 +1,44 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { payouts, teachers } from "@/api/resources";
 import type { Payout, PayoutStatus, Teacher } from "@/api/types";
 import { Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
+import { MonthPicker } from "@/components/MonthPicker";
 import { formatMoney } from "@/lib/money";
 
 const readonly = "bg-slate-50 text-slate-600";
 
+// Approval stages removed — a submitted payout is paid or rejected in one step.
 const NEXT: Partial<Record<PayoutStatus, { to: PayoutStatus; label: string }>> = {
-  submitted: { to: "hod_approved", label: "HOD approve" },
-  hod_approved: { to: "finance_approved", label: "Finance approve" },
-  finance_approved: { to: "processed", label: "Process" },
+  submitted: { to: "processed", label: "Mark as Paid" },
+  hod_approved: { to: "processed", label: "Mark as Paid" },
+  finance_approved: { to: "processed", label: "Mark as Paid" },
 };
 
-const STEPS: { key: PayoutStatus; label: string; sub: string }[] = [
-  { key: "submitted", label: "Form Submitted", sub: "Completed by Admin" },
-  { key: "hod_approved", label: "HOD Review", sub: "Awaiting approval" },
-  { key: "finance_approved", label: "Finance Review", sub: "Pending" },
-  { key: "processed", label: "Payment Processed", sub: "Pending" },
-];
+const STATUS_BADGE: Record<string, string> = {
+  submitted: "bg-amber-50 text-amber-700",
+  hod_approved: "bg-amber-50 text-amber-700",
+  finance_approved: "bg-amber-50 text-amber-700",
+  processed: "bg-emerald-50 text-emerald-700",
+  rejected: "bg-rose-50 text-rose-600",
+};
+const STATUS_LABEL: Record<string, string> = {
+  submitted: "Pending",
+  hod_approved: "Pending",
+  finance_approved: "Pending",
+  processed: "Paid",
+  rejected: "Rejected",
+};
 
 const q = (v: string) => (Number.parseFloat(v || "0") || 0).toFixed(2);
 
 const EMPTY = {
-  teacher: "", pay_type: "", pay_period: "",
+  teacher: "", pay_type: "salary", pay_period: "",
   base_amount: "0.00", bonus_amount: "0.00", deductions: "0.00",
-  payment_method: "", notes: "",
+  days_present: "", days_absent: "",
+  payment_method: "bank_transfer", payment_reference: "", notes: "",
 };
 
 export function TeacherPayoutPage() {
@@ -35,18 +46,42 @@ export function TeacherPayoutPage() {
   const teacherList = useQuery({ queryKey: ["teachers"], queryFn: () => teachers.list() });
   const payoutList = useQuery({ queryKey: ["payouts"], queryFn: () => payouts.list() });
   const [form, setForm] = useState({ ...EMPTY });
+  const [reasons, setReasons] = useState<string[]>([""]);
+  const [teacherQuery, setTeacherQuery] = useState("");
+  const [teacherOpen, setTeacherOpen] = useState(false);
   const [error, setError] = useState("");
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const selected: Teacher | undefined = teacherList.data?.results.find((t) => String(t.id) === form.teacher);
+  const teacherMatches = useMemo(() => {
+    const term = teacherQuery.trim().toLowerCase();
+    const all = teacherList.data?.results ?? [];
+    if (!term) return all.slice(0, 8);
+    return all
+      .filter((t) => t.full_name.toLowerCase().includes(term) || (t.employee_id ?? "").toLowerCase().includes(term))
+      .slice(0, 8);
+  }, [teacherQuery, teacherList.data]);
   const net = q(String(Number(q(form.base_amount)) + Number(q(form.bonus_amount)) - Number(q(form.deductions))));
 
-  const totalBudget = (payoutList.data?.results ?? []).reduce((s, p) => s + Number(p.net_amount), 0);
-  const pending = (payoutList.data?.results ?? []).filter((p) => !["processed", "rejected"].includes(p.status)).length;
+  const rows = payoutList.data?.results ?? [];
+  const totalBudget = rows.reduce((s, p) => s + Number(p.net_amount), 0);
+  const pending = rows.filter((p) => !["processed", "rejected"].includes(p.status)).length;
+  const paidPayouts = rows.filter((p) => p.status === "processed");
+  const paidCount = paidPayouts.length;
+  const paidTotal = paidPayouts.reduce((s, p) => s + Number(p.net_amount), 0);
 
-  function pickTeacher(id: string) {
-    const t = teacherList.data?.results.find((x) => String(x.id) === id);
-    setForm((f) => ({ ...f, teacher: id, base_amount: t?.base_salary ?? f.base_amount }));
+  function pickTeacher(t: Teacher) {
+    const earnings = (Number(t.base_salary) + Number(t.hra) + Number(t.medical_allowance) + Number(t.other_allowance)).toFixed(2);
+    const deduct = (Number(t.pf_amount) + Number(t.tds_amount) + Number(t.other_deduction)).toFixed(2);
+    setForm((f) => ({ ...f, teacher: String(t.id), base_amount: earnings, deductions: deduct }));
+    setTeacherQuery(t.full_name);
+    setTeacherOpen(false);
+  }
+
+  function resetForm() {
+    setForm({ ...EMPTY });
+    setReasons([""]);
+    setTeacherQuery("");
   }
 
   const create = useMutation({
@@ -58,12 +93,16 @@ export function TeacherPayoutPage() {
         base_amount: q(form.base_amount),
         bonus_amount: q(form.bonus_amount),
         deductions: q(form.deductions),
+        days_present: form.days_present === "" ? null : Number(form.days_present),
+        days_absent: form.days_absent === "" ? null : Number(form.days_absent),
+        deduction_reason: reasons.map((r) => r.trim()).filter(Boolean).join("; "),
         payment_method: form.payment_method,
+        payment_reference: form.payment_reference,
         notes: form.notes,
       }),
     onSuccess: () => {
       setError("");
-      setForm({ ...EMPTY });
+      resetForm();
       qc.invalidateQueries({ queryKey: ["payouts"] });
     },
     onError: (e) => setError(e instanceof ApiError ? e.detail : "Could not submit payout."),
@@ -75,7 +114,10 @@ export function TeacherPayoutPage() {
     onError: (e) => setError(e instanceof ApiError ? e.detail : "Transition not allowed."),
   });
 
-  const canSubmit = form.teacher && form.pay_type && form.pay_period && Number(form.base_amount) > 0;
+  const canSubmit =
+    Boolean(form.teacher) &&
+    Boolean(form.pay_period) &&
+    Number(q(form.base_amount)) + Number(q(form.bonus_amount)) > 0;
 
   return (
     <div className="space-y-6">
@@ -114,12 +156,34 @@ export function TeacherPayoutPage() {
           <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-400">Teacher Information</p>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Labeled label="Full name" required>
-              <Select value={form.teacher} onChange={(e) => pickTeacher(e.target.value)}>
-                <option value="">Select teacher</option>
-                {teacherList.data?.results.map((t) => (
-                  <option key={t.id} value={t.id}>{t.full_name}</option>
-                ))}
-              </Select>
+              <div className="relative">
+                <TextInput
+                  placeholder="Search teacher by name or ID…"
+                  value={teacherQuery}
+                  onChange={(e) => { setTeacherQuery(e.target.value); setTeacherOpen(true); if (form.teacher) set("teacher", ""); }}
+                  onFocus={() => setTeacherOpen(true)}
+                />
+                {teacherOpen && teacherMatches.length > 0 && (
+                  <div className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                    {teacherMatches.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => pickTeacher(t)}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50"
+                      >
+                        <span className="font-medium text-slate-800">{t.full_name}</span>
+                        <span className="text-xs text-slate-400">{t.employee_id}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {selected && (
+                <Link to={`/teachers/${selected.id}/edit`} className="mt-1 inline-block text-xs font-semibold text-brand hover:underline">
+                  Edit {selected.full_name}'s details →
+                </Link>
+              )}
             </Labeled>
             <Labeled label="Employee ID" required>
               <TextInput className={readonly} readOnly value={selected?.employee_id ?? ""} placeholder="e.g. TCH-2024-001" />
@@ -143,37 +207,84 @@ export function TeacherPayoutPage() {
               </Select>
             </Labeled>
             <Labeled label="Pay period" required>
-              <TextInput type="month" value={form.pay_period} onChange={(e) => set("pay_period", e.target.value)} />
+              <MonthPicker value={form.pay_period} onChange={(v) => set("pay_period", v)} placeholder="Select pay month" />
             </Labeled>
-            <Labeled label="Base amount ($)" required>
+            <Labeled label="Base amount (₹)" required>
               <TextInput placeholder="0.00" value={form.base_amount} onChange={(e) => set("base_amount", e.target.value)} />
             </Labeled>
-            <Labeled label="Bonus / incentive ($)">
+            <Labeled label="Bonus / incentive (₹)">
               <TextInput placeholder="0.00" value={form.bonus_amount} onChange={(e) => set("bonus_amount", e.target.value)} />
             </Labeled>
-            <Labeled label="Deductions ($)">
+            <Labeled label="Deductions (₹)">
               <TextInput placeholder="0.00" value={form.deductions} onChange={(e) => set("deductions", e.target.value)} />
             </Labeled>
             <Labeled label="Payment method" required>
-              <Select value={form.payment_method} onChange={(e) => set("payment_method", e.target.value)}>
+              <Select value={form.payment_method} onChange={(e) => { set("payment_method", e.target.value); set("payment_reference", ""); }}>
                 <option value="">Select method</option>
-                <option value="bank_transfer">Bank Transfer</option>
+                <option value="bank_transfer">Bank Transfer / Account</option>
+                <option value="upi">UPI</option>
                 <option value="cheque">Cheque</option>
                 <option value="cash">Cash</option>
               </Select>
             </Labeled>
+            {form.payment_method === "cheque" && (
+              <Labeled label="Cheque number" required>
+                <TextInput placeholder="e.g. 004521" value={form.payment_reference} onChange={(e) => set("payment_reference", e.target.value)} />
+              </Labeled>
+            )}
+            {form.payment_method === "upi" && (
+              <Labeled label="UPI ID / reference" required>
+                <TextInput placeholder="e.g. teacher@okhdfc" value={form.payment_reference} onChange={(e) => set("payment_reference", e.target.value)} />
+              </Labeled>
+            )}
+            {form.payment_method === "bank_transfer" && (
+              <Labeled label="Credited to account">
+                <TextInput className={readonly} readOnly value={selected ? `${selected.bank_name} ${selected.account_number ? "•••• " + selected.account_number.slice(-4) : ""}`.trim() : ""} placeholder="Select teacher for account details" />
+              </Labeled>
+            )}
+          </div>
+
+          <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wide text-slate-400">Attendance &amp; Deduction Reasons</p>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Labeled label="Days present">
+              <TextInput type="number" placeholder="e.g. 24" value={form.days_present} onChange={(e) => set("days_present", e.target.value)} />
+            </Labeled>
+            <Labeled label="Days absent">
+              <TextInput type="number" placeholder="e.g. 2" value={form.days_absent} onChange={(e) => set("days_absent", e.target.value)} />
+            </Labeled>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Reasons for deductions</label>
+              <div className="space-y-2">
+                {reasons.map((r, i) => (
+                  <div key={i} className="flex gap-2">
+                    <TextInput
+                      placeholder="e.g. 2 days loss of pay"
+                      value={r}
+                      onChange={(e) => setReasons((rs) => rs.map((x, j) => (j === i ? e.target.value : x)))}
+                    />
+                    {reasons.length > 1 && (
+                      <button type="button" onClick={() => setReasons((rs) => rs.filter((_, j) => j !== i))} className="rounded-lg bg-rose-50 px-3 text-rose-500 hover:bg-rose-100" aria-label="Remove reason">🗑</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => setReasons((rs) => [...rs, ""])} className="mt-2 text-sm font-semibold text-brand hover:underline">+ Add reason</button>
+            </div>
           </div>
 
           <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wide text-slate-400">Bank Details</p>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Labeled label="Account holder">
+              <TextInput className={readonly} readOnly value={selected?.account_holder_name ?? ""} placeholder="—" />
+            </Labeled>
             <Labeled label="Bank name">
-              <TextInput className={readonly} readOnly value={selected?.bank_name ?? ""} placeholder="e.g. Chase Bank" />
+              <TextInput className={readonly} readOnly value={selected?.bank_name ?? ""} placeholder="e.g. HDFC Bank" />
             </Labeled>
-            <Labeled label="Account number">
-              <TextInput className={readonly} readOnly value={selected?.bank_name ? "•••• •••• ••••" : ""} placeholder="XXXX XXXX XXXX" />
+            <Labeled label="Branch">
+              <TextInput className={readonly} readOnly value={selected?.branch ?? ""} placeholder="—" />
             </Labeled>
-            <Labeled label="Routing / IFSC number" full>
-              <TextInput className={readonly} readOnly value={selected?.routing_code ?? ""} placeholder="e.g. 021000021" />
+            <Labeled label="IFSC code">
+              <TextInput className={readonly} readOnly value={selected?.ifsc_code ?? ""} placeholder="e.g. HDFC0001234" />
             </Labeled>
             <Labeled label="Notes / remarks" full>
               <TextArea placeholder="Add any additional notes or justification for this payout…" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
@@ -184,10 +295,9 @@ export function TeacherPayoutPage() {
             <button onClick={() => create.mutate()} disabled={!canSubmit || create.isPending} className="rounded-xl bg-brand-gradient px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
               ➤ {create.isPending ? "Submitting…" : "Submit Payout"}
             </button>
-            <button onClick={() => setForm({ ...EMPTY })} className="rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              💾 Save as Draft
+            <button onClick={resetForm} className="rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              ↺ Clear
             </button>
-            <button onClick={() => setForm({ ...EMPTY })} className="rounded-xl border border-slate-200 px-4 py-2.5 text-slate-500 hover:bg-slate-50">↺</button>
           </div>
         </div>
 
@@ -204,20 +314,18 @@ export function TeacherPayoutPage() {
           </div>
 
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">👥 Approval Steps</h3>
-            <ol className="space-y-4">
-              {STEPS.map((s, i) => (
-                <li key={s.key} className="flex items-start gap-3">
-                  <span className={`mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-xs ${i === 0 ? "bg-brand text-white" : i === 1 ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400"}`}>
-                    {i === 0 ? "✓" : i === 1 ? "◷" : "•"}
-                  </span>
-                  <div>
-                    <p className={`text-sm font-semibold ${i <= 1 ? "text-slate-800" : "text-slate-400"}`}>{s.label}</p>
-                    <p className="text-xs text-slate-400">{s.sub}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">📊 Payout Status</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-amber-50 px-4 py-3">
+                <p className="text-xs font-medium text-amber-700">Pending</p>
+                <p className="text-2xl font-bold text-amber-700">{pending}</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 px-4 py-3">
+                <p className="text-xs font-medium text-emerald-700">Paid</p>
+                <p className="text-lg font-bold text-emerald-700">{formatMoney(paidTotal.toFixed(2))}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">Payouts are paid in a single step — no multi-stage approval.</p>
           </div>
 
           <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -227,7 +335,12 @@ export function TeacherPayoutPage() {
                 <div key={p.id} className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{p.teacher_name}</p>
-                    <p className="text-xs capitalize text-slate-400">{p.pay_type.replace("_", " ")} · {p.status.replace("_", " ")}</p>
+                    <p className="mt-0.5 flex items-center gap-2 text-xs capitalize text-slate-400">
+                      {p.pay_type.replace("_", " ")}
+                      <span className={`rounded-full px-2 py-0.5 font-medium ${STATUS_BADGE[p.status] ?? "bg-slate-100 text-slate-500"}`}>
+                        {STATUS_LABEL[p.status] ?? p.status}
+                      </span>
+                    </p>
                     {NEXT[p.status] && (
                       <div className="mt-1 flex gap-2">
                         <button onClick={() => transition.mutate({ id: p.id, to: NEXT[p.status]!.to })} className="text-xs font-semibold text-brand hover:underline">{NEXT[p.status]!.label}</button>
@@ -242,6 +355,43 @@ export function TeacherPayoutPage() {
             </div>
             <Link to="/teachers/new" className="mt-4 block text-sm font-semibold text-brand hover:underline">Add teacher →</Link>
           </div>
+        </div>
+      </div>
+
+      {/* Payments made (processed payouts) */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold text-slate-900">Payments Made</h3>
+          <span className="text-sm text-slate-400">{paidCount} paid · {formatMoney(paidTotal.toFixed(2))}</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-2 font-semibold">Teacher</th>
+                <th className="px-4 py-2 font-semibold">Period</th>
+                <th className="px-4 py-2 font-semibold">Type</th>
+                <th className="px-4 py-2 font-semibold">Present / Absent</th>
+                <th className="px-4 py-2 font-semibold">Method</th>
+                <th className="px-4 py-2 font-semibold">Reference</th>
+                <th className="px-4 py-2 text-right font-semibold">Net Paid</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paidPayouts.map((p) => (
+                <tr key={p.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2 font-medium text-slate-800">{p.teacher_name}</td>
+                  <td className="px-4 py-2 text-slate-600">{p.pay_period}</td>
+                  <td className="px-4 py-2 capitalize text-slate-600">{p.pay_type.replace("_", " ")}</td>
+                  <td className="px-4 py-2 text-slate-600">{p.days_present ?? "—"} / {p.days_absent ?? "—"}</td>
+                  <td className="px-4 py-2 capitalize text-slate-600">{(p.payment_method || "—").replace("_", " ")}</td>
+                  <td className="px-4 py-2 text-slate-600">{p.payment_reference || "—"}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-emerald-600">{formatMoney(p.net_amount, p.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {paidPayouts.length === 0 && <p className="px-4 py-4 text-slate-400">No payments made yet. Submit a payout and mark it as paid.</p>}
         </div>
       </div>
     </div>

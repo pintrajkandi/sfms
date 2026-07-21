@@ -144,20 +144,36 @@ export function FeeCollectionWizard() {
       {step === 0 && (
         <div className="space-y-6">
           <Card icon="🎓" title="Student Information" subtitle="Enter the student's personal details">
-            {!student && (
+            {!student ? (
               <div className="mb-5">
-                <TextInput placeholder="Search student by name or ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
-                {search.data && query.length > 1 && (
-                  <div className="mt-2 divide-y divide-slate-50 rounded-lg border border-slate-100">
-                    {search.data.results.map((s) => (
-                      <button key={s.id} onClick={() => setStudent(s)} className="flex w-full justify-between px-4 py-2.5 text-left text-sm hover:bg-slate-50">
-                        <span className="font-medium text-slate-800">{s.full_name}</span>
+                <TextInput placeholder="Search student by name, ID or phone…" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
+                {query.length > 1 && (
+                  <div className="mt-2 max-h-72 divide-y divide-slate-50 overflow-y-auto rounded-lg border border-slate-100 shadow-sm">
+                    {search.isFetching && <p className="px-4 py-2.5 text-sm text-slate-400">Searching…</p>}
+                    {search.data?.results.map((s) => (
+                      <button key={s.id} type="button" onClick={() => setStudent(s)} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-brand-light">
+                        <span className="flex flex-col">
+                          <span className="font-medium text-slate-800">{s.full_name}</span>
+                          <span className="text-xs text-slate-400">{s.grade || "—"}{s.section ? ` · ${s.section}` : ""}{s.phone ? ` · 📱 ${s.phone}` : ""}</span>
+                        </span>
                         <span className="font-mono text-xs text-slate-400">{s.student_id}</span>
                       </button>
                     ))}
-                    {search.data.results.length === 0 && <p className="px-4 py-2.5 text-sm text-slate-400">No students found.</p>}
+                    {!search.isFetching && search.data?.results.length === 0 && (
+                      <p className="px-4 py-2.5 text-sm text-slate-400">No students found for “{query}”.</p>
+                    )}
                   </div>
                 )}
+              </div>
+            ) : (
+              <div className="mb-5 flex items-center justify-between rounded-lg bg-brand-light px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{student.full_name}</p>
+                  <p className="text-xs text-slate-500">{student.student_id}{student.phone ? ` · 📱 ${student.phone}` : ""}</p>
+                </div>
+                <button type="button" onClick={() => { setStudent(null); setQuery(""); }} className="text-sm font-medium text-brand hover:underline">
+                  Change student
+                </button>
               </div>
             )}
 
@@ -191,7 +207,7 @@ export function FeeCollectionWizard() {
           <Card icon="🏫" title="Academic Details" subtitle="Course, class, and academic year">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <Labeled label="Department" required>
-                <TextInput className={readonly} readOnly value={student?.department || student?.program || ""} placeholder="—" />
+                <TextInput className={readonly} readOnly value={student?.department || student?.section || ""} placeholder="—" />
               </Labeled>
               <Labeled label="Class / grade" required>
                 <TextInput className={readonly} readOnly value={student?.grade ?? ""} placeholder="—" />

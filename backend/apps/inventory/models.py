@@ -37,7 +37,7 @@ class InventoryItem(SoftDeleteModel):
 
     # Purchase info
     unit_cost = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     supplier_name = models.CharField(max_length=200, blank=True)
     invoice_po_number = models.CharField(max_length=64, blank=True)
     warranty_expiry = models.DateField(null=True, blank=True)

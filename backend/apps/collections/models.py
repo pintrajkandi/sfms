@@ -38,7 +38,7 @@ class Invoice(TimeStampedModel):
         default=InvoiceStatus.DRAFT,
         db_index=True,
     )
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
 
     issue_date = models.DateField(auto_now_add=True)
     due_date = models.DateField(null=True, blank=True)
@@ -88,7 +88,7 @@ class Payment(TimeStampedModel):
 
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="payments")
     amount = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     method = models.CharField(max_length=16, choices=PaymentMethod.choices)
     reference = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.RECORDED)
@@ -101,11 +101,40 @@ class Payment(TimeStampedModel):
         "accounts.User", on_delete=models.SET_NULL, null=True, blank=True
     )
 
+    # Digital signature over the receipt payload (Ed25519 — see collections.signatures).
+    signature = models.TextField(blank=True)  # base64 signature
+    signed_hash = models.CharField(max_length=64, blank=True)  # sha256 of payload
+    signing_key = models.ForeignKey(
+        "collections.SigningKey", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    signed_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ("-paid_at",)
 
     def __str__(self) -> str:
         return f"{self.amount} {self.currency} → {self.invoice_id}"
+
+
+class SigningKey(TimeStampedModel):
+    """
+    Per-tenant Ed25519 keypair used to digitally sign receipts. One active key at
+    a time; rotating creates a new active key (old ones stay for verification).
+    The private key is stored PEM-encoded — in production keep it in a KMS/secret
+    store, not the DB.
+    """
+
+    label = models.CharField(max_length=64, default="default")
+    algorithm = models.CharField(max_length=20, default="ed25519")
+    public_pem = models.TextField()
+    private_pem = models.TextField()
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"SigningKey {self.label} ({self.algorithm})"
 
 
 class PaymentPlan(TimeStampedModel):
@@ -180,7 +209,7 @@ class Refund(TimeStampedModel):
         Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name="refunds"
     )
     amount = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     method = models.CharField(max_length=16, choices=PaymentMethod.choices)
     reason = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PROCESSED)
@@ -212,7 +241,7 @@ class CreditNote(TimeStampedModel):
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="credit_notes")
     credit_note_number = models.CharField(max_length=32, unique=True)
     amount = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.ADJUSTMENT)
     reason = models.CharField(max_length=255, blank=True)
     issued_by = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True)
@@ -327,6 +356,85 @@ class ChequeBounce(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"Bounce {self.payment_id} on {self.invoice_id}"
+
+
+class Mandate(TimeStampedModel):
+    """
+    A UPI Autopay / e-mandate authorising recurring auto-debit for a student's
+    fees. The gateway (Razorpay) holds the real mandate; we store its token +
+    lifecycle. Auto-debits within `max_amount` are attempted by dispatch_autopay.
+    """
+
+    class Status(models.TextChoices):
+        CREATED = "created", "Created"  # awaiting payer authorisation
+        ACTIVE = "active", "Active"
+        PAUSED = "paused", "Paused"
+        CANCELLED = "cancelled", "Cancelled"
+        REJECTED = "rejected", "Rejected"
+
+    class Frequency(models.TextChoices):
+        MONTHLY = "monthly", "Monthly"
+        QUARTERLY = "quarterly", "Quarterly"
+        AS_PRESENTED = "as_presented", "As presented"
+
+    student = models.ForeignKey(
+        "students.Student", on_delete=models.PROTECT, related_name="mandates"
+    )
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.CREATED, db_index=True
+    )
+    frequency = models.CharField(
+        max_length=14, choices=Frequency.choices, default=Frequency.AS_PRESENTED
+    )
+    # Per-debit ceiling the payer authorised. Auto-debits never exceed this.
+    max_amount = money_field()
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
+
+    payer_vpa = models.CharField(max_length=100, blank=True)  # UPI id, e.g. name@bank
+    # Gateway identifiers (Razorpay subscription/token/customer ids or a dev mock).
+    gateway_ref = models.CharField(max_length=100, blank=True, db_index=True)
+    gateway_customer = models.CharField(max_length=100, blank=True)
+    auth_url = models.URLField(blank=True)  # where the payer approves the mandate
+
+    start_on = models.DateField(null=True, blank=True)
+    next_charge_on = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Mandate {self.student_id} ({self.status})"
+
+
+class MandateCharge(TimeStampedModel):
+    """One auto-debit attempt against a mandate, linked to the invoice + payment."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCEEDED = "succeeded", "Succeeded"
+        FAILED = "failed", "Failed"
+
+    mandate = models.ForeignKey(Mandate, on_delete=models.CASCADE, related_name="charges")
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="mandate_charges")
+    amount = money_field()
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    gateway_payment_id = models.CharField(max_length=100, blank=True)
+    # Idempotency: one charge per (mandate, invoice, period) key.
+    idempotency_key = models.CharField(max_length=80, unique=True)
+    payment = models.ForeignKey(
+        Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name="mandate_charges"
+    )
+    error = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Charge {self.amount} {self.currency} [{self.status}]"
 
 
 class AppliedDiscount(TimeStampedModel):

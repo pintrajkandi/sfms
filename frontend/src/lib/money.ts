@@ -3,7 +3,7 @@
  * Amounts arrive from the API as decimal strings; format them, don't compute on them.
  * For arithmetic use a decimal lib (e.g. dinero.js) on minor units (CLAUDE.md §1/§6).
  */
-export function formatMoney(amount: string | number, currency = "USD", locale = "en-US"): string {
+export function formatMoney(amount: string | number, currency = "INR", locale = "en-IN"): string {
   const value = typeof amount === "string" ? amount : amount.toString();
   const numeric = Number.parseFloat(value); // display-only conversion
   return new Intl.NumberFormat(locale, {

@@ -263,3 +263,124 @@ def defaulter_report() -> dict:
         "total_outstanding": _q_s(total),
         "count": len(defaulters),
     }
+
+
+# --------------------------------------------------------------------------- #
+# Predictive collections — a transparent risk score per student, from history.
+# --------------------------------------------------------------------------- #
+def _band(score: int) -> str:
+    if score >= 60:
+        return "high"
+    if score >= 30:
+        return "medium"
+    return "low"
+
+
+_ACTIONS = {
+    "high": "Call guardian today; offer an instalment plan or set up UPI Autopay.",
+    "medium": "Send a reminder and propose a payment plan before it ages further.",
+    "low": "Monitor; the automated reminder cadence is sufficient.",
+}
+
+
+def _student_risk(student, invoices, bounces_by_student) -> dict | None:
+    """Score one student's likelihood of not paying on time. None if nothing owed."""
+    today = date.today()
+    outstanding = ZERO
+    overdue_count = 0
+    max_days_overdue = 0
+    billed = ZERO
+    late_days: list[int] = []
+
+    for inv in invoices:
+        billed += inv.total
+        bal = inv.total - inv.amount_paid
+        if bal > ZERO:
+            outstanding += bal
+            if inv.due_date and inv.due_date < today:
+                overdue_count += 1
+                max_days_overdue = max(max_days_overdue, (today - inv.due_date).days)
+        elif inv.status == InvoiceStatus.PAID and inv.due_date:
+            # Historical lateness: last payment date vs due date.
+            last = max((p.paid_at.date() for p in inv.payments.all()), default=None)
+            if last:
+                late_days.append(max(0, (last - inv.due_date).days))
+
+    if outstanding <= ZERO:
+        return None
+
+    bounces = bounces_by_student.get(student.id, 0)
+    avg_late = sum(late_days) / len(late_days) if late_days else 0
+    ratio = float(outstanding / billed) if billed > ZERO else 0.0
+
+    # Transparent weighted score (0–100).
+    s_overdue = min(40.0, max_days_overdue * 0.8)
+    s_count = min(15.0, overdue_count * 5.0)
+    s_hist = min(20.0, avg_late * 0.5)
+    s_bounce = min(15.0, bounces * 15.0)
+    s_ratio = min(10.0, ratio * 10.0)
+    score = int(round(min(100.0, s_overdue + s_count + s_hist + s_bounce + s_ratio)))
+
+    reasons = []
+    if max_days_overdue > 0:
+        reasons.append(f"{max_days_overdue} days overdue")
+    if overdue_count > 1:
+        reasons.append(f"{overdue_count} overdue invoices")
+    if avg_late >= 5:
+        reasons.append(f"pays ~{int(avg_late)} days late on average")
+    if bounces:
+        reasons.append(f"{bounces} bounced cheque(s)")
+    if ratio >= 0.5:
+        reasons.append("large share of fees unpaid")
+    if not reasons:
+        reasons.append("outstanding balance, no adverse history")
+
+    band = _band(score)
+    return {
+        "student": student.full_name,
+        "student_id": student.student_id,
+        "grade": student.grade,
+        "outstanding": _q_s(outstanding),
+        "risk_score": score,
+        "risk_band": band,
+        "days_overdue": max_days_overdue,
+        "reasons": reasons,
+        "recommended_action": _ACTIONS[band],
+    }
+
+
+def collection_risk_report(*, limit: int = 100) -> dict:
+    """Rank students by predicted collection risk, with reasons + next action."""
+    from django.db.models import Count
+
+    from apps.students.models import Student
+
+    from .models import ChequeBounce
+
+    bounces_by_student: dict[int, int] = {
+        row["invoice__student_id"]: row["n"]
+        for row in ChequeBounce.objects.values("invoice__student_id").annotate(n=Count("id"))
+    }
+
+    students = (
+        Student.objects.alive()
+        .prefetch_related("invoices__payments")
+        .filter(invoices__isnull=False)
+        .distinct()
+    )
+    rows = []
+    for student in students:
+        invoices = [inv for inv in student.invoices.all() if inv.status != InvoiceStatus.CANCELLED]
+        risk = _student_risk(student, invoices, bounces_by_student)
+        if risk:
+            rows.append(risk)
+
+    rows.sort(key=lambda r: r["risk_score"], reverse=True)
+    bands = {"high": 0, "medium": 0, "low": 0}
+    for r in rows:
+        bands[r["risk_band"]] += 1
+    return {
+        "at_risk": rows[:limit],
+        "counts": bands,
+        "total_at_risk": len(rows),
+    }

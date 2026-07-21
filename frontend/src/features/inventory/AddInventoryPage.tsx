@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
 import { inventory } from "@/api/resources";
-import { Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
+import { Labeled, TextArea, TextInput, Toast } from "@/components/form";
 import { log } from "@/lib/logger";
 
 const CATEGORIES = [
@@ -16,14 +17,11 @@ const CATEGORIES = [
   { value: "medical", label: "Medical", icon: "🏥" },
   { value: "other", label: "Other", icon: "⋯" },
 ];
-const UNITS = ["Piece", "Box", "Set", "Pack", "Dozen", "Kg", "Litre", "Metre"];
-const DEPARTMENTS = ["Administration", "Science", "Library", "Sports", "Computer Lab", "Medical", "General"];
-
 const EMPTY = {
   category: "",
-  name: "", sku: "", brand: "", unit_of_measurement: "", condition: "", description: "",
+  name: "", sku: "", brand: "", description: "",
   unit_cost: "0.00", supplier_name: "", invoice_po_number: "", warranty_expiry: "",
-  quantity: "0", min_stock_alert: "0", storage_location: "", department: "", assigned_to: "", date_acquired: "",
+  quantity: "0", min_stock_alert: "0", date_acquired: "",
   is_active: true,
 };
 
@@ -44,6 +42,8 @@ function Section({ icon, tint, title, subtitle, children }: { icon: React.ReactN
 
 export function AddInventoryPage() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
   const [form, setForm] = useState({ ...EMPTY });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -52,6 +52,26 @@ export function AddInventoryPage() {
   const [saving, setSaving] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const existing = useQuery({
+    queryKey: ["inventory-item", id],
+    queryFn: () => inventory.get(id!),
+    enabled: isEdit,
+  });
+
+  useEffect(() => {
+    if (!existing.data) return;
+    const it = existing.data as unknown as Record<string, unknown>;
+    setForm((f) => {
+      const next = { ...f };
+      (Object.keys(EMPTY) as (keyof typeof EMPTY)[]).forEach((k) => {
+        const v = it[k];
+        if (k === "is_active") next.is_active = Boolean(v);
+        else if (v !== null && v !== undefined) (next as Record<string, unknown>)[k] = String(v);
+      });
+      return next;
+    });
+  }, [existing.data]);
 
   function pickPhoto(file: File) {
     setPhotoFile(file);
@@ -69,7 +89,7 @@ export function AddInventoryPage() {
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (!form.category) next.category = "Select a category";
-    (["name", "sku", "unit_of_measurement", "quantity"] as const).forEach((k) => !form[k] && (next[k] = "Required"));
+    (["name", "sku", "quantity"] as const).forEach((k) => !form[k] && (next[k] = "Required"));
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -82,9 +102,10 @@ export function AddInventoryPage() {
       const scalars = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== "")) as Record<string, unknown>;
       scalars.quantity = Number(form.quantity);
       scalars.min_stock_alert = Number(form.min_stock_alert || 0);
-      const created = await inventory.create(scalars);
-      if (photoFile) await inventory.uploadPhoto(created.id, photoFile);
-      log.info("inventory item added", { entity: created.id, action: "add_inventory" });
+      scalars.is_active = form.is_active;
+      const saved = isEdit ? await inventory.update(id!, scalars) : await inventory.create(scalars);
+      if (photoFile) await inventory.uploadPhoto(saved.id, photoFile);
+      log.info(isEdit ? "inventory item updated" : "inventory item added", { entity: saved.id, action: isEdit ? "edit_inventory" : "add_inventory" });
       navigate("/inventory");
     } catch (err) {
       if (err instanceof ApiError && err.body && typeof err.body === "object") setErrors(err.body as Record<string, string>);
@@ -100,14 +121,14 @@ export function AddInventoryPage() {
         <div>
           <p className="text-sm text-slate-400">
             <Link to="/inventory" className="hover:text-brand">Dashboard</Link> ›{" "}
-            <span className="text-brand">Add Inventory Item</span>
+            <span className="text-brand">{isEdit ? "Edit Inventory Item" : "Add Inventory Item"}</span>
           </p>
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">Add New Inventory Item</h1>
-          <p className="mt-1 text-slate-500">Fill in all required fields to register a new school inventory item.</p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-900">{isEdit ? "Edit Inventory Item" : "Add New Inventory Item"}</h1>
+          <p className="mt-1 text-slate-500">{isEdit ? "Update the details of this inventory item." : "Fill in all required fields to register a new school inventory item."}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => navigate("/inventory")} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">✕ Cancel</button>
-          <button onClick={save} disabled={saving} className="rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">💾 Save Item</button>
+          <button onClick={save} disabled={saving} className="rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">💾 {isEdit ? "Save Changes" : "Save Item"}</button>
         </div>
       </div>
 
@@ -146,46 +167,19 @@ export function AddInventoryPage() {
               <Labeled label="Brand / manufacturer">
                 <TextInput placeholder="e.g. Nilkamal" value={form.brand} onChange={(e) => set("brand", e.target.value)} />
               </Labeled>
-              <Labeled label="Unit of measurement" required error={errors.unit_of_measurement}>
-                <Select value={form.unit_of_measurement} onChange={(e) => set("unit_of_measurement", e.target.value)}>
-                  <option value="">Select unit</option>
-                  {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                </Select>
-              </Labeled>
-              <Labeled label="Condition">
-                <Select value={form.condition} onChange={(e) => set("condition", e.target.value)}>
-                  <option value="">Select condition</option>
-                  <option value="new">New</option>
-                  <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                  <option value="poor">Poor</option>
-                </Select>
-              </Labeled>
               <Labeled label="Description" full>
                 <TextArea placeholder="Brief description of this item…" value={form.description} onChange={(e) => set("description", e.target.value)} />
               </Labeled>
             </div>
           </Section>
 
-          <Section icon={<span className="text-brand">▤</span>} tint="bg-brand-light" title="Stock & Location">
+          <Section icon={<span className="text-brand">▤</span>} tint="bg-brand-light" title="Stock">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <Labeled label="Quantity" required error={errors.quantity}>
                 <TextInput type="number" placeholder="0" value={form.quantity} onChange={(e) => set("quantity", e.target.value)} />
               </Labeled>
               <Labeled label="Min. stock alert">
                 <TextInput type="number" placeholder="0" value={form.min_stock_alert} onChange={(e) => set("min_stock_alert", e.target.value)} />
-              </Labeled>
-              <Labeled label="Storage location">
-                <TextInput placeholder="e.g. Room 102, Shelf B" value={form.storage_location} onChange={(e) => set("storage_location", e.target.value)} />
-              </Labeled>
-              <Labeled label="Department / block">
-                <Select value={form.department} onChange={(e) => set("department", e.target.value)}>
-                  <option value="">Select department</option>
-                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                </Select>
-              </Labeled>
-              <Labeled label="Assigned to">
-                <TextInput placeholder="e.g. Class 10A, Lab 3" value={form.assigned_to} onChange={(e) => set("assigned_to", e.target.value)} />
               </Labeled>
               <Labeled label="Date acquired">
                 <TextInput type="date" value={form.date_acquired} onChange={(e) => set("date_acquired", e.target.value)} />
@@ -239,7 +233,7 @@ export function AddInventoryPage() {
           </Section>
 
           <button onClick={save} disabled={saving} className="w-full rounded-xl bg-brand-gradient py-3 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
-            💾 {saving ? "Saving…" : "Save Inventory Item"}
+            💾 {saving ? "Saving…" : isEdit ? "Save Changes" : "Save Inventory Item"}
           </button>
           <button onClick={reset} className="w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
             ↺ Reset Form

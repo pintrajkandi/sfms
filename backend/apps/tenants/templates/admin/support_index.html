@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Tenant support console</h1>
+<p style="color:#6b7280">Pick a school to inspect its data (read-only). Every school runs in its own isolated schema.</p>
+<table style="width:100%;max-width:720px;border-collapse:collapse;margin-top:12px">
+  <thead>
+    <tr style="text-align:left;border-bottom:2px solid #e5e7eb">
+      <th style="padding:8px">School</th><th style="padding:8px">Code</th><th style="padding:8px">Schema</th><th style="padding:8px"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in clients %}
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:8px;font-weight:600">{{ c.name }}</td>
+      <td style="padding:8px">{{ c.code|default:"—" }}</td>
+      <td style="padding:8px;font-family:monospace;color:#6b7280">{{ c.schema_name }}</td>
+      <td style="padding:8px"><a href="{% url 'platform_admin:support-detail' c.schema_name %}">Inspect →</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

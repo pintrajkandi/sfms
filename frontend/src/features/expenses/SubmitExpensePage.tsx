@@ -12,7 +12,7 @@ const COST_CENTERS = ["General", "Academics", "Sports", "Events", "Maintenance",
 
 const EMPTY = {
   title: "", category: "", expense_date: "",
-  amount: "0.00", currency: "USD", payment_method: "", reimbursable: false,
+  amount: "0.00", currency: "INR", payment_method: "", reimbursable: false,
   vendor: "", project_cost_center: "", notes: "",
 };
 
@@ -118,16 +118,13 @@ export function SubmitExpensePage() {
             </div>
           </Section>
 
-          <Section icon={<span className="text-emerald-600">$</span>} tint="bg-emerald-50" title="Amount & Payment">
+          <Section icon={<span className="text-emerald-600">₹</span>} tint="bg-emerald-50" title="Amount & Payment">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              <Labeled label="Amount" required error={errors.amount}>
+              <Labeled label="Amount (₹)" required error={errors.amount}>
                 <TextInput placeholder="0.00" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
               </Labeled>
               <Labeled label="Currency">
                 <Select value={form.currency} onChange={(e) => set("currency", e.target.value)}>
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="GBP">GBP — British Pound</option>
                   <option value="INR">INR — Indian Rupee</option>
                 </Select>
               </Labeled>

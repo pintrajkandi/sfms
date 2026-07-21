@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -5,7 +6,6 @@ from rest_framework.response import Response
 
 from apps.collections.selectors import student_fee_summary
 from apps.core.export import export_response
-from apps.core.search import full_text_search
 
 from .models import Student
 from .serializers import StudentSerializer
@@ -20,9 +20,8 @@ _EXPORT_HEADERS = [
     "Student ID",
     "First Name",
     "Last Name",
-    "Grade",
+    "Class",
     "Section",
-    "Program",
     "Email",
     "Phone",
     "Guardian",
@@ -33,15 +32,34 @@ _EXPORT_HEADERS = [
 
 class StudentViewSet(viewsets.ModelViewSet):
     serializer_class = StudentSerializer
+    rbac_resource = "students"
 
     def get_queryset(self):
         qs = Student.objects.alive()
-        term = self.request.query_params.get("search")
+        term = (self.request.query_params.get("search") or "").strip()
         if term:
-            qs = full_text_search(qs, term)
+            # Partial, typeahead-friendly search across name / id / phone. Each
+            # word must match somewhere, so "Emma Johnson" matches first+last.
+            for word in term.split()[:5]:
+                qs = qs.filter(
+                    Q(first_name__icontains=word)
+                    | Q(last_name__icontains=word)
+                    | Q(student_id__icontains=word)
+                    | Q(phone__icontains=word)
+                    | Q(guardian_phone__icontains=word)
+                    | Q(guardian_name__icontains=word)
+                    | Q(email__icontains=word)
+                )
         return qs
 
     def perform_create(self, serializer):
+        from apps.tenants.limits import student_limit_for_current_tenant
+
+        limit = student_limit_for_current_tenant()
+        if limit and Student.objects.alive().count() >= limit:
+            raise ValidationError(
+                f"Your plan allows up to {limit} students. Upgrade to enrol more."
+            )
         serializer.instance = create_student(actor=self.request.user, **serializer.validated_data)
 
     def perform_update(self, serializer):
@@ -81,7 +99,6 @@ class StudentViewSet(viewsets.ModelViewSet):
                 s.last_name,
                 s.grade,
                 s.section,
-                s.program,
                 s.email,
                 s.phone,
                 s.guardian_name,

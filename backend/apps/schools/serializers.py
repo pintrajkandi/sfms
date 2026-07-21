@@ -1,6 +1,48 @@
 from rest_framework import serializers
 
-from .models import AcademicYear, SchoolSettings
+from .models import (
+    AcademicYear,
+    Department,
+    SchoolClass,
+    SchoolSettings,
+    Section,
+    SupportTicket,
+)
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ("id", "name", "is_active")
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportTicket
+        fields = (
+            "id",
+            "subject",
+            "category",
+            "message",
+            "contact_email",
+            "status",
+            "created_at",
+        )
+        read_only_fields = ("status", "created_at")
+
+
+class SectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Section
+        fields = ("id", "school_class", "name", "is_active")
+
+
+class SchoolClassSerializer(serializers.ModelSerializer):
+    sections = SectionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SchoolClass
+        fields = ("id", "name", "order", "is_active", "sections")
 
 
 class SchoolSettingsSerializer(serializers.ModelSerializer):

@@ -3,10 +3,12 @@
 from django.urls import path
 
 from .views import (
+    PortalAutopayView,
     PortalFeesView,
     PortalInvoicesView,
     PortalPayOrderView,
     PortalPayVerifyView,
+    PortalReceiptsView,
     RequestOtpView,
     VerifyOtpView,
 )
@@ -18,4 +20,6 @@ urlpatterns = [
     path("invoices/", PortalInvoicesView.as_view(), name="portal-invoices"),
     path("pay/order/", PortalPayOrderView.as_view(), name="portal-pay-order"),
     path("pay/verify/", PortalPayVerifyView.as_view(), name="portal-pay-verify"),
+    path("autopay/", PortalAutopayView.as_view(), name="portal-autopay"),
+    path("receipts/", PortalReceiptsView.as_view(), name="portal-receipts"),
 ]

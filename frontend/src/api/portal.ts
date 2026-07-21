@@ -13,8 +13,10 @@ import { ApiError, apiBase } from "@/api/client";
 import { log } from "@/lib/logger";
 import type {
   ParentInvoice,
+  ParentMandate,
   ParentPayOrder,
   ParentPayVerifyResult,
+  ParentReceipt,
   ParentVerifyResult,
   RazorpayConfig,
   RazorpayVerifyPayload,
@@ -86,4 +88,17 @@ export const portal = {
   /** Public gateway config (AllowAny) — reused to decide whether to show Pay Now. */
   razorpayConfig: () =>
     portalFetch<RazorpayConfig>("/payments/razorpay/config/"),
+
+  autopay: (token: string) =>
+    portalFetch<{ mandate: ParentMandate | null }>("/portal/autopay/", {}, token),
+
+  setupAutopay: (token: string, max_amount?: string) =>
+    portalFetch<{ mandate: ParentMandate }>(
+      "/portal/autopay/",
+      { method: "POST", body: JSON.stringify({ max_amount }) },
+      token,
+    ),
+
+  receipts: (token: string) =>
+    portalFetch<ParentReceipt[]>("/portal/receipts/", {}, token),
 };

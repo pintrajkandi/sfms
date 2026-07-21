@@ -64,7 +64,7 @@ export function StudentsPage() {
             <tr>
               <th className="px-6 py-3 font-medium">Student ID</th>
               <th className="px-6 py-3 font-medium">Name</th>
-              <th className="px-6 py-3 font-medium">Grade</th>
+              <th className="px-6 py-3 font-medium">Class</th>
               <th className="px-6 py-3 font-medium">Guardian</th>
             </tr>
           </thead>

@@ -14,10 +14,13 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from django.db import transaction
+
+from apps.core.audit import record_audit
 from apps.core.logging import ctx, get_logger
 from apps.core.models import ZERO
 
-from .models import DiscountRule, StudentDiscount
+from .models import DiscountRule, FeePlan, StudentDiscount
 
 log = get_logger("fees.discounts")
 
@@ -175,3 +178,55 @@ def resolve_discounts(
         **ctx(entity=student.pk, action="resolve_discounts"),
     )
     return total, chosen
+
+
+@transaction.atomic
+def clone_fee_plans(*, source_year, target_year, increase_percent=0, actor=None) -> int:
+    """
+    Copy every fee plan from `source_year` into `target_year`, optionally bumping
+    each amount by `increase_percent`. Skips plans that already exist in the
+    target (same fee_type + grade). Returns the number created.
+    """
+    if source_year.pk == target_year.pk:
+        from apps.core.services import ServiceError
+
+        raise ServiceError("Source and target academic years must differ.")
+
+    factor = (_HUNDRED + Decimal(increase_percent)) / _HUNDRED
+    existing = set(
+        FeePlan.objects.alive()
+        .filter(academic_year=target_year)
+        .values_list("fee_type_id", "grade")
+    )
+    created = 0
+    for plan in FeePlan.objects.alive().filter(academic_year=source_year):
+        if (plan.fee_type_id, plan.grade) in existing:
+            continue
+        FeePlan.objects.create(
+            fee_type=plan.fee_type,
+            academic_year=target_year,
+            grade=plan.grade,
+            amount=_q(plan.amount * factor),
+            currency=plan.currency,
+            due_date=plan.due_date,
+        )
+        created += 1
+
+    log.info(
+        "fee plans cloned source=%s target=%s created=%s increase=%s%%",
+        source_year.label,
+        target_year.label,
+        created,
+        increase_percent,
+        **ctx(user=getattr(actor, "id", "-"), entity=target_year.pk, action="clone_fee_plans"),
+    )
+    record_audit(
+        action="fee_plans.cloned",
+        entity=target_year,
+        summary=(
+            f"Cloned {created} fee plan(s) {source_year.label} → {target_year.label} "
+            f"(+{increase_percent}%)"
+        ),
+        actor=actor,
+    )
+    return created

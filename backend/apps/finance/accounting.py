@@ -37,9 +37,9 @@ def _payments(since: date, until: date):
 
 
 def _expenses(since: date, until: date):
-    return Expense.objects.filter(
-        expense_date__gte=since, expense_date__lte=until
-    ).order_by("expense_date")
+    return Expense.objects.filter(expense_date__gte=since, expense_date__lte=until).order_by(
+        "expense_date"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -51,7 +51,7 @@ def _voucher(vtype: str, dt: date, party: str, ledger: str, amount: str, narrati
     sign = "-" if vtype == "Receipt" else ""
     opp = "" if vtype == "Receipt" else "-"
     return (
-        f"<VOUCHER VCHTYPE=\"{vtype}\" ACTION=\"Create\">"
+        f'<VOUCHER VCHTYPE="{vtype}" ACTION="Create">'
         f"<DATE>{dt:%Y%m%d}</DATE>"
         f"<VOUCHERTYPENAME>{vtype}</VOUCHERTYPENAME>"
         f"<NARRATION>{narration}</NARRATION>"
@@ -89,9 +89,7 @@ def tally_xml(since: date, until: date) -> str:
                 e.title,
             )
         )
-    body = "".join(
-        f"<TALLYMESSAGE xmlns:UDF=\"TallyUDF\">{v}</TALLYMESSAGE>" for v in vouchers
-    )
+    body = "".join(f'<TALLYMESSAGE xmlns:UDF="TallyUDF">{v}</TALLYMESSAGE>' for v in vouchers)
     return (
         "<ENVELOPE><HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>"
         "<BODY><IMPORTDATA><REQUESTDESC><REPORTNAME>Vouchers</REPORTNAME></REQUESTDESC>"

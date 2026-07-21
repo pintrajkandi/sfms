@@ -49,21 +49,27 @@ class Teacher(SoftDeleteModel):
     qualification = models.CharField(max_length=200, blank=True)
     bio = models.TextField(blank=True)
 
-    # --- Salary & Increment ---
-    base_salary = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    # --- Salary structure (monthly earnings) ---
+    base_salary = money_field()  # Basic pay
+    hra = money_field()  # House rent allowance
+    medical_allowance = money_field()
+    other_allowance = money_field()
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     pay_frequency = models.CharField(
         max_length=20, choices=PayFrequency.choices, default=PayFrequency.MONTHLY
     )
-    last_increment_date = models.DateField(null=True, blank=True)
-    increment_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    next_increment_due = models.DateField(null=True, blank=True)
-    increment_reason = models.CharField(max_length=200, blank=True)
 
-    # --- Bank details (no full sensitive data logged — see §9) ---
+    # --- Standard monthly deductions ---
+    pf_amount = money_field()  # Provident fund
+    tds_amount = money_field()  # Tax deducted at source
+    other_deduction = money_field()
+
+    # --- Bank account details (no full sensitive data logged — see §9) ---
+    account_holder_name = models.CharField(max_length=150, blank=True)
     bank_name = models.CharField(max_length=120, blank=True)
     account_number = models.CharField(max_length=40, blank=True)
-    routing_code = models.CharField(max_length=40, blank=True)
+    branch = models.CharField(max_length=120, blank=True)
+    ifsc_code = models.CharField(max_length=20, blank=True)
 
     @property
     def full_name(self) -> str:
@@ -105,11 +111,26 @@ class Payout(TimeStampedModel):
 
     base_amount = money_field()
     bonus_amount = money_field()
-    deductions = money_field()
-    net_amount = money_field()  # computed in services: base + bonus − deductions
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    deductions = money_field()  # total deductions (statutory + other)
+    net_amount = money_field()  # computed in services: gross − total deductions
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
+
+    # --- Payroll breakdown (statutory). Zero unless run through run_payroll. ---
+    allowances = money_field()  # HRA + other allowances on top of basic
+    gross_amount = money_field()  # basic + allowances + bonus
+    pf_amount = money_field()  # employee provident fund
+    esi_amount = money_field()  # employee state insurance
+    tds_amount = money_field()  # tax deducted at source
+    professional_tax = money_field()
+    other_deductions = money_field()
+
+    # --- Attendance / deductions detail for this pay run ---
+    days_present = models.PositiveIntegerField(null=True, blank=True)
+    days_absent = models.PositiveIntegerField(null=True, blank=True)
+    deduction_reason = models.TextField(blank=True)  # may list multiple reasons
 
     payment_method = models.CharField(max_length=32, blank=True)
+    payment_reference = models.CharField(max_length=64, blank=True)  # cheque no. / UPI id
     notes = models.TextField(blank=True)
     status = models.CharField(
         max_length=20,

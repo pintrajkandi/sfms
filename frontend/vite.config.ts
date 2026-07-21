@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["pwa-icon.svg", "apple-touch-icon.png"],
+      includeAssets: ["pwa-icon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
       devOptions: { enabled: true }, // let the app install/run standalone in dev too
       manifest: {
         name: "Fee Ledger — Smart School Finance",
@@ -21,8 +21,10 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         icons: [
+          { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/pwa-maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
           { src: "/pwa-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-          { src: "/pwa-icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "maskable" },
         ],
       },
       workbox: {

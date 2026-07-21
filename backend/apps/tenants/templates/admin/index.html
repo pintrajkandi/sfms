@@ -1,0 +1,43 @@
+{% extends "admin/index.html" %}
+{% block content %}
+{% if platform_stats %}
+<div style="margin-bottom:24px">
+  <h2 style="margin:0 0 12px">Platform overview</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+    {% with s=platform_stats %}
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+      <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Schools</div>
+      <div style="font-size:26px;font-weight:700">{{ s.schools_total }}</div>
+      <div style="font-size:12px;color:#059669">{{ s.schools_active }} active</div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+      <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Trial / Paid</div>
+      <div style="font-size:26px;font-weight:700">{{ s.schools_trial }} / {{ s.schools_paid }}</div>
+      <div style="font-size:12px;color:#b45309">{{ s.trials_expiring }} expiring ≤14d</div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+      <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Suspended / Archived</div>
+      <div style="font-size:26px;font-weight:700">{{ s.schools_suspended }} / {{ s.schools_archived }}</div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+      <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Students (all schools)</div>
+      <div style="font-size:26px;font-weight:700">{{ s.students_total }}</div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+      <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">Verification pending</div>
+      <div style="font-size:26px;font-weight:700">{{ s.verification_pending }}</div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+      <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em">MRR (paid plans)</div>
+      <div style="font-size:26px;font-weight:700">{{ s.mrr }}</div>
+    </div>
+    {% endwith %}
+  </div>
+  <p style="margin-top:10px">
+    <a href="{% url 'platform_admin:ops' %}">→ Ops health</a> ·
+    <a href="{% url 'platform_admin:support' %}">→ Tenant support console</a>
+  </p>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

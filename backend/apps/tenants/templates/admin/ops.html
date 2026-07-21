@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Ops health</h1>
+<p><a href="{% url 'platform_admin:index' %}">← Back to dashboard</a></p>
+<table style="width:100%;max-width:720px;border-collapse:collapse;margin-top:12px">
+  <thead>
+    <tr style="text-align:left;border-bottom:2px solid #e5e7eb">
+      <th style="padding:8px">Service</th><th style="padding:8px">Status</th><th style="padding:8px">Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in health %}
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:8px;font-weight:600">{{ row.name }}</td>
+      <td style="padding:8px">
+        {% if row.ok %}<span style="color:#059669;font-weight:600">● up</span>
+        {% else %}<span style="color:#b91c1c;font-weight:600">● down</span>{% endif %}
+      </td>
+      <td style="padding:8px;color:#6b7280">{{ row.detail }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

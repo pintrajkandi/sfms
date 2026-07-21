@@ -45,6 +45,7 @@ export function StudentDetailPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => window.print()} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">🖨 Print</button>
+          <Link to={`/students/${id}/edit`} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">✎ Edit</Link>
           <Link to={`/fee-collection?student=${id}`} className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-semibold text-white hover:opacity-95">+ Add Fee</Link>
         </div>
       </div>
@@ -65,7 +66,7 @@ export function StudentDetailPage() {
               <h2 className="text-lg font-bold text-slate-900">{s?.full_name}</h2>
               <p className="text-sm text-slate-500">Student ID: <span className="font-mono text-brand">{s?.student_id}</span></p>
               <div className="mt-5 space-y-4">
-                <InfoRow icon="📘" label="Course" value={s?.program || "—"} />
+                <InfoRow icon="📘" label="Section" value={s?.section || "—"} />
                 <InfoRow icon="📚" label="Class / Section" value={`${s?.grade || "—"}${s?.section ? ` / ${s.section}` : ""}`} />
                 <InfoRow icon="📅" label="Enrollment Date" value={formatDate(s?.enrollment_date)} />
                 <InfoRow icon="✉️" label="Email" value={s?.email || "—"} />

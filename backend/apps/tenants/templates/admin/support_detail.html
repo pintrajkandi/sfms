@@ -1,0 +1,62 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Support · {{ client.name }}</h1>
+<p><a href="{% url 'platform_admin:support' %}">← All schools</a> · <span style="font-family:monospace;color:#6b7280">{{ client.schema_name }}</span></p>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:16px 0">
+  {% for k, v in data.counts.items %}
+  <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px">
+    <div style="font-size:12px;color:#6b7280;text-transform:capitalize">{{ k }}</div>
+    <div style="font-size:22px;font-weight:700">{{ v }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Payouts (workflow states)</h2>
+<table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+  <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb">
+    <th style="padding:6px">ID</th><th style="padding:6px">Teacher</th><th style="padding:6px">Period</th><th style="padding:6px">Net</th><th style="padding:6px">Status</th>
+  </tr></thead>
+  <tbody>
+    {% for p in data.payouts %}
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:6px">{{ p.id }}</td><td style="padding:6px">{{ p.teacher__employee_id }}</td>
+      <td style="padding:6px">{{ p.pay_period }}</td><td style="padding:6px">{{ p.net_amount }} {{ p.currency }}</td>
+      <td style="padding:6px"><b>{{ p.status }}</b></td>
+    </tr>
+    {% empty %}<tr><td colspan="5" style="padding:6px;color:#6b7280">No payouts.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Recent invoices</h2>
+<table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+  <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb">
+    <th style="padding:6px">Invoice</th><th style="padding:6px">Status</th><th style="padding:6px">Total</th><th style="padding:6px">Paid</th>
+  </tr></thead>
+  <tbody>
+    {% for i in data.recent_invoices %}
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:6px">{{ i.invoice_number }}</td><td style="padding:6px">{{ i.status }}</td>
+      <td style="padding:6px">{{ i.total }} {{ i.currency }}</td><td style="padding:6px">{{ i.amount_paid }}</td>
+    </tr>
+    {% empty %}<tr><td colspan="4" style="padding:6px;color:#6b7280">No invoices.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Staff</h2>
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr style="text-align:left;border-bottom:2px solid #e5e7eb">
+    <th style="padding:6px">Email</th><th style="padding:6px">Role</th><th style="padding:6px">Active</th><th style="padding:6px">Verified</th>
+  </tr></thead>
+  <tbody>
+    {% for u in data.staff %}
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:6px">{{ u.email }}</td><td style="padding:6px">{{ u.role }}</td>
+      <td style="padding:6px">{{ u.is_active|yesno:"yes,no" }}</td><td style="padding:6px">{{ u.email_verified|yesno:"yes,no" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

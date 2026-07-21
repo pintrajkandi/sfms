@@ -16,16 +16,29 @@ from apps.core.export import export_response
 from apps.core.logging import ctx, get_logger
 from apps.core.services import ServiceError
 
-from . import banking, gateway
+from . import assistant, banking, gateway, mandates, signatures
 from .gst import generate_einvoice
-from .models import BankStatement, BankStatementLine, Invoice, Payment, PaymentPlan
-from .selectors import collection_dashboard, collection_stats, defaulter_report
+from .models import (
+    BankStatement,
+    BankStatementLine,
+    Invoice,
+    Mandate,
+    Payment,
+    PaymentPlan,
+)
+from .selectors import (
+    collection_dashboard,
+    collection_risk_report,
+    collection_stats,
+    defaulter_report,
+)
 from .serializers import (
     BankStatementLineSerializer,
     BankStatementSerializer,
     CreditNoteSerializer,
     EInvoiceSerializer,
     InvoiceSerializer,
+    MandateSerializer,
     PaymentPlanSerializer,
     PaymentSerializer,
     RefundSerializer,
@@ -90,8 +103,90 @@ class DefaultersView(APIView):
         return Response(report)
 
 
+class CollectionRiskView(APIView):
+    """Predictive collections — students ranked by likelihood of not paying."""
+
+    def get(self, request):
+        limit = int(request.query_params.get("limit", 100))
+        return Response(collection_risk_report(limit=limit))
+
+
+class StudentLedgerView(APIView):
+    """Running fee statement for one student (?student=<id>)."""
+
+    def get(self, request):
+        from apps.students.models import Student
+
+        from .ledgers import student_ledger
+
+        student_id = request.query_params.get("student")
+        student = Student.objects.filter(pk=student_id).first() if student_id else None
+        if student is None:
+            raise ValidationError("A valid 'student' id is required.")
+        return Response(student_ledger(student=student))
+
+
+class ParentLedgerView(APIView):
+    """Combined statement across a guardian's children (?student=<id> or ?phone=)."""
+
+    def get(self, request):
+        from apps.students.models import Student
+
+        from .ledgers import parent_ledger
+
+        phone = (request.query_params.get("phone") or "").strip()
+        name = ""
+        if not phone:
+            student = Student.objects.filter(pk=request.query_params.get("student")).first()
+            if student is None:
+                raise ValidationError("Provide a 'student' id or guardian 'phone'.")
+            phone = student.guardian_phone
+            name = student.guardian_name
+
+        kids = Student.objects.alive()
+        if phone:
+            kids = kids.filter(guardian_phone=phone)
+        elif name:
+            kids = kids.filter(guardian_name=name)
+        else:
+            raise ValidationError("This student has no guardian phone on file.")
+        if not name:
+            first = kids.first()
+            name = first.guardian_name if first else ""
+        return Response(
+            parent_ledger(students=list(kids), guardian_name=name, guardian_phone=phone)
+        )
+
+
+class CollectionAssistantView(APIView):
+    """
+    NL collections assistant. POST {question}. Answers from the risk report via
+    Claude when configured, else a deterministic rule-based summary.
+    """
+
+    def post(self, request):
+        question = (request.data.get("question") or "").strip()
+        if not question:
+            raise ValidationError("A question is required.")
+        return Response(assistant.ask(question))
+
+    def get(self, request):
+        return Response({"enabled": assistant.assistant_enabled()})
+
+
+class SigningKeyView(APIView):
+    """Publish the tenant's active receipt-signing public key (for verifiers)."""
+
+    def get(self, request):
+        key = signatures.get_active_key()
+        return Response(
+            {"algorithm": key.algorithm, "public_pem": key.public_pem, "key_id": key.id}
+        )
+
+
 class InvoiceViewSet(viewsets.ModelViewSet):
     serializer_class = InvoiceSerializer
+    rbac_resource = "invoices"
 
     def get_queryset(self):
         qs = Invoice.objects.select_related("student").prefetch_related("lines")
@@ -114,7 +209,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             due_date=data.get("due_date"),
             discount_amount=data.get("discount_amount", 0),
             late_fee_amount=data.get("late_fee_amount", 0),
-            currency=data.get("currency", "USD"),
+            currency=data.get("currency", "INR"),
             actor=request.user,
         )
         out = self.get_serializer(invoice)
@@ -208,12 +303,23 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
+    rbac_resource = "payments"
 
     def get_queryset(self):
-        qs = Payment.objects.select_related("invoice__student")
+        qs = Payment.objects.select_related("invoice__student").order_by("-paid_at")
         invoice = self.request.query_params.get("invoice")
         if invoice:
             qs = qs.filter(invoice_id=invoice)
+        term = (self.request.query_params.get("search") or "").strip()
+        if term:
+            from django.db.models import Q
+
+            qs = qs.filter(
+                Q(invoice__student__first_name__icontains=term)
+                | Q(invoice__student__last_name__icontains=term)
+                | Q(invoice__student__student_id__icontains=term)
+                | Q(reference__icontains=term)
+            )
         return qs
 
     @action(detail=False, methods=["get"])
@@ -266,6 +372,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
         out = self.get_serializer(payment)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["get"])
+    def signature(self, request, pk=None):
+        """Verify a receipt's digital signature and return the public key."""
+        payment = self.get_object()
+        result = signatures.verify_receipt(payment)
+        result["public_pem"] = payment.signing_key.public_pem if payment.signing_key else ""
+        result["signed_hash"] = payment.signed_hash
+        return Response(result)
+
     @action(detail=True, methods=["post"])
     def bounce(self, request, pk=None):
         """Dishonour a cheque payment: void it, reverse the credit, levy a charge."""
@@ -297,6 +412,7 @@ class BankStatementViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = BankStatementSerializer
+    rbac_resource = "bank-statements"
 
     def get_queryset(self):
         return BankStatement.objects.all()
@@ -314,9 +430,7 @@ class BankStatementViewSet(viewsets.ModelViewSet):
             )
         except (KeyError, ServiceError) as exc:
             raise ValidationError(f"Invalid statement rows: {exc}") from exc
-        return Response(
-            BankStatementSerializer(statement).data, status=status.HTTP_201_CREATED
-        )
+        return Response(BankStatementSerializer(statement).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
     def reconcile(self, request, pk=None):
@@ -336,6 +450,73 @@ class BankStatementViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(qs)
         serializer = BankStatementLineSerializer(page or qs, many=True)
         return self.get_paginated_response(serializer.data) if page else Response(serializer.data)
+
+
+class MandateViewSet(viewsets.ModelViewSet):
+    """UPI Autopay / e-mandates: create, authorise, cancel, and manually charge."""
+
+    serializer_class = MandateSerializer
+    rbac_resource = "mandates"
+
+    def get_queryset(self):
+        qs = Mandate.objects.select_related("student").prefetch_related("charges")
+        student = self.request.query_params.get("student")
+        state = self.request.query_params.get("status")
+        if student:
+            qs = qs.filter(student_id=student)
+        if state:
+            qs = qs.filter(status=state)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+        try:
+            mandate = mandates.create_mandate(
+                student=d["student"],
+                max_amount=d["max_amount"],
+                frequency=d.get("frequency", Mandate.Frequency.AS_PRESENTED),
+                currency=d.get("currency", "INR"),
+                payer_vpa=d.get("payer_vpa", ""),
+                start_on=d.get("start_on"),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(self.get_serializer(mandate).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def activate(self, request, pk=None):
+        """Mark the mandate authorised (payer approved). In prod this is a webhook."""
+        try:
+            mandate = mandates.activate_mandate(self.get_object(), actor=request.user)
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(self.get_serializer(mandate).data)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        mandate = mandates.cancel_mandate(self.get_object(), actor=request.user)
+        return Response(self.get_serializer(mandate).data)
+
+    @action(detail=True, methods=["post"])
+    def charge(self, request, pk=None):
+        """Manually trigger an auto-debit against a specific invoice."""
+        invoice = _get_invoice_or_400(request.data.get("invoice"))
+        try:
+            charge = mandates.charge_mandate(
+                mandate=self.get_object(),
+                invoice=invoice,
+                amount=request.data.get("amount"),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(
+            {"status": charge.status, "charge": charge.id, "payment": charge.payment_id},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 # --------------------------------------------------------------------------- #

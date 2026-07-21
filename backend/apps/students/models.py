@@ -30,7 +30,6 @@ class Student(SoftDeleteModel):
     last_name = models.CharField(max_length=100)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=10, choices=Gender.choices, blank=True)
-    nationality = models.CharField(max_length=100, blank=True)
     photo = models.ImageField(upload_to="students/", null=True, blank=True)
 
     # Contact
@@ -44,11 +43,10 @@ class Student(SoftDeleteModel):
     guardian_phone = models.CharField(max_length=32, blank=True)
     guardian_email = models.EmailField(blank=True)
 
-    # Academic
+    # Academic. `grade` stores the managed class name; `section` the section name.
     department = models.CharField(max_length=100, blank=True)
-    grade = models.CharField(max_length=50, blank=True)  # grade / year
-    section = models.CharField(max_length=50, blank=True)  # section / class
-    program = models.CharField(max_length=120, blank=True)  # program / major
+    grade = models.CharField(max_length=50, blank=True)  # class (managed via SchoolClass)
+    section = models.CharField(max_length=50, blank=True)  # section (managed via Section)
     enrollment_date = models.DateField(null=True, blank=True)
     status = models.CharField(
         max_length=20, choices=EnrollmentStatus.choices, default=EnrollmentStatus.ACTIVE

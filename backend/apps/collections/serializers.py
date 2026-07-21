@@ -13,6 +13,8 @@ from .models import (
     Installment,
     Invoice,
     InvoiceLine,
+    Mandate,
+    MandateCharge,
     Payment,
     PaymentPlan,
     Refund,
@@ -158,6 +160,54 @@ class BankStatementSerializer(serializers.ModelSerializer):
         read_only_fields = ("imported_by", "created_at")
 
 
+class MandateChargeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MandateCharge
+        fields = (
+            "id",
+            "invoice",
+            "amount",
+            "currency",
+            "status",
+            "gateway_payment_id",
+            "payment",
+            "error",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class MandateSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source="student.full_name", read_only=True)
+    charges = MandateChargeSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Mandate
+        fields = (
+            "id",
+            "student",
+            "student_name",
+            "status",
+            "frequency",
+            "max_amount",
+            "currency",
+            "payer_vpa",
+            "gateway_ref",
+            "auth_url",
+            "start_on",
+            "next_charge_on",
+            "charges",
+            "created_at",
+        )
+        read_only_fields = (
+            "status",
+            "gateway_ref",
+            "auth_url",
+            "next_charge_on",
+            "created_at",
+        )
+
+
 class InvoiceSerializer(serializers.ModelSerializer):
     lines = InvoiceLineSerializer(many=True)
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
@@ -246,9 +296,20 @@ class PaymentSerializer(serializers.ModelSerializer):
             "fee_type",
             "idempotency_key",
             "recorded_by",
+            "signature",
+            "signed_hash",
+            "signed_at",
             "created_at",
         )
-        read_only_fields = ("status", "currency", "recorded_by", "created_at")
+        read_only_fields = (
+            "status",
+            "currency",
+            "recorded_by",
+            "signature",
+            "signed_hash",
+            "signed_at",
+            "created_at",
+        )
 
     def validate_idempotency_key(self, value):
         return value or uuid.uuid4().hex

@@ -10,6 +10,7 @@ _SEARCH_FIELDS = {"name": "A", "sku": "A", "brand": "B", "supplier_name": "C"}
 
 class InventoryItemViewSet(viewsets.ModelViewSet):
     serializer_class = InventoryItemSerializer
+    rbac_resource = "inventory"
 
     def get_queryset(self):
         qs = InventoryItem.objects.alive()

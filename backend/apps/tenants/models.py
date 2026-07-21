@@ -10,6 +10,23 @@ from django.db import models
 from django_tenants.models import DomainMixin, TenantMixin
 
 
+class Plan(models.Model):
+    """A subscription plan (public schema). Defines price + per-tenant limits."""
+
+    name = models.CharField(max_length=60, unique=True)
+    price_monthly = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    currency = models.CharField(max_length=3, default="INR")
+    max_students = models.PositiveIntegerField(default=0)  # 0 = unlimited
+    features = models.JSONField(default=dict, blank=True)  # feature flags / module toggles
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("price_monthly",)
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Client(TenantMixin):
     name = models.CharField(max_length=200)
 
@@ -24,6 +41,13 @@ class Client(TenantMixin):
     on_trial = models.BooleanField(default=True)
     paid_until = models.DateField(null=True, blank=True)
     created_on = models.DateField(auto_now_add=True)
+    # Suspended schools stay provisioned but their staff cannot sign in.
+    is_active = models.BooleanField(default=True)
+    # Archived schools are read-only offboarding candidates (kept before delete).
+    is_archived = models.BooleanField(default=False)
+    plan = models.ForeignKey(
+        Plan, on_delete=models.SET_NULL, null=True, blank=True, related_name="clients"
+    )
 
     # django-tenants auto-creates the schema on save.
     auto_create_schema = True
@@ -35,3 +59,36 @@ class Client(TenantMixin):
 
 class Domain(DomainMixin):
     pass
+
+
+class BackupRun(models.Model):
+    """
+    A database backup + its verification outcome (CLAUDE.md §10 — backups are
+    verified, not assumed). Platform-level, so it lives in the public schema
+    (apps.tenants is SHARED). One row per pg_dump; `verified` flips true only
+    after a successful restore-drill into a scratch database.
+    """
+
+    class Status(models.TextChoices):
+        CREATED = "created", "Created"
+        VERIFIED = "verified", "Verified"
+        FAILED = "failed", "Failed"
+
+    label = models.CharField(max_length=120)
+    path = models.CharField(max_length=500, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True)
+    size_bytes = models.BigIntegerField(default=0)
+    table_count_total = models.BigIntegerField(default=0)  # summed rows across tables
+    table_counts = models.JSONField(default=dict, blank=True)  # {"schema.table": n}
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.CREATED)
+    verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    report = models.JSONField(default=dict, blank=True)
+    error = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Backup {self.label} [{self.status}]"

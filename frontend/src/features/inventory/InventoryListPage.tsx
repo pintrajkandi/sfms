@@ -41,7 +41,7 @@ export function InventoryListPage() {
               <th className="px-6 py-3 font-medium">Category</th>
               <th className="px-6 py-3 font-medium">Qty</th>
               <th className="px-6 py-3 font-medium">Unit Cost</th>
-              <th className="px-6 py-3 font-medium">Location</th>
+              <th className="px-6 py-3 text-right font-medium"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -52,7 +52,9 @@ export function InventoryListPage() {
                 <td className="px-6 py-3 capitalize">{it.category.replace("_", " ")}</td>
                 <td className={`px-6 py-3 ${it.quantity <= it.min_stock_alert ? "font-semibold text-rose-600" : ""}`}>{it.quantity}</td>
                 <td className="px-6 py-3">{formatMoney(it.unit_cost, it.currency)}</td>
-                <td className="px-6 py-3 text-slate-500">{it.storage_location || "—"}</td>
+                <td className="px-6 py-3 text-right">
+                  <Link to={`/inventory/${it.id}/edit`} className="text-xs font-semibold text-brand hover:underline">Edit</Link>
+                </td>
               </tr>
             ))}
           </tbody>

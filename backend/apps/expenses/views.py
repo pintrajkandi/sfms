@@ -10,6 +10,7 @@ log = get_logger("expenses")
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     serializer_class = ExpenseSerializer
+    rbac_resource = "expenses"
 
     def get_queryset(self):
         qs = Expense.objects.all()
@@ -22,6 +23,9 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         expense = serializer.save(
             submitted_by=self.request.user if self.request.user.is_authenticated else None
         )
+        from apps.finance.ledger import _safe, post_expense
+
+        _safe(post_expense, expense)
         log.info(
             "expense submitted amount=%s category=%s",
             expense.amount,

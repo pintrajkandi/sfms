@@ -23,6 +23,16 @@ app.conf.beat_schedule = {
         "task": "apps.notifications.tasks.dispatch_fee_reminders",
         "schedule": 60 * 60 * 24.0,  # once daily
     },
+    # UPI Autopay: auto-debit active e-mandates for due invoices (idempotent).
+    "dispatch-autopay": {
+        "task": "apps.collections.tasks.dispatch_autopay",
+        "schedule": 60 * 60 * 24.0,  # once daily
+    },
+    # Nightly verified DB backup + restore drill (backups are verified, not assumed).
+    "nightly-backup": {
+        "task": "apps.tenants.tasks.nightly_backup",
+        "schedule": 60 * 60 * 24.0,  # once daily
+    },
 }
 
 

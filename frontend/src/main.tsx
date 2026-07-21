@@ -6,6 +6,7 @@ import { RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import "./index.css";
 import { AUTH0_REDIRECT_PATH, auth0Config, auth0Enabled } from "./lib/auth0";
+import { InstallPrompt } from "./pwa/InstallPrompt";
 import { router } from "./routes/router";
 
 const queryClient = new QueryClient();
@@ -14,6 +15,7 @@ const tree = (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <RouterProvider router={router} />
+      <InstallPrompt />
     </AuthProvider>
   </QueryClientProvider>
 );

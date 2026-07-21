@@ -16,20 +16,25 @@ from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import ensure_csrf_cookie
-from rest_framework import serializers, status
+from rest_framework import serializers, status, viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.email import send_mail_async
 from apps.core.logging import ctx, get_logger
+from apps.core.services import ServiceError
 
 from .serializers import (
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    StaffCreateSerializer,
+    StaffUserSerializer,
     UserSerializer,
 )
+from .services import create_staff
 from .tokens import read_email_token
 
 log = get_logger("auth")
@@ -163,6 +168,17 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        # Suspended school → block sign-in (platform-console lifecycle action).
+        if getattr(request.tenant, "is_active", True) is False:
+            log.warning("login blocked: school suspended", **ctx(action="login"))
+            return Response(
+                {
+                    "detail": "This school account is suspended. Contact support.",
+                    "code": "school_suspended",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         code = (data.get("school_code") or "").strip().upper()
         if code and code != getattr(request.tenant, "code", None):
             log.warning(
@@ -207,6 +223,104 @@ class LoginView(APIView):
         return Response(UserSerializer(user).data)
 
 
+class ImpersonateView(APIView):
+    """
+    Consume a platform-signed impersonation ticket and log in as the target user
+    (support access). Ticket is SECRET_KEY-signed + schema-scoped + short-lived;
+    every use is audited in the tenant schema.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        from django.core import signing
+
+        from apps.core.audit import record_audit
+        from apps.tenants.impersonation import read_ticket
+
+        try:
+            data = read_ticket(request.data.get("ticket", ""))
+        except signing.SignatureExpired:
+            return Response(
+                {"detail": "Impersonation link expired."}, status=status.HTTP_403_FORBIDDEN
+            )
+        except signing.BadSignature:
+            return Response(
+                {"detail": "Invalid impersonation link."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        if data.get("schema") != connection.schema_name:
+            return Response(
+                {"detail": "Ticket is for a different school."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        User = get_user_model()
+        user = User.objects.filter(pk=data.get("uid"), is_active=True).first()
+        if user is None:
+            return Response({"detail": "Target user not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        request.session.set_expiry(1800)  # 30-min support session
+        request.session["impersonated_by"] = data.get("op_email")
+        record_audit(
+            action="impersonation.start",
+            entity=user,
+            summary=f"{data.get('op_email')} impersonated {user.email}",
+        )
+        log.warning(
+            "impersonation started operator=%s target=%s",
+            data.get("op_email"),
+            user.id,
+            **ctx(user=user.id, action="impersonate"),
+        )
+        return Response(UserSerializer(user).data)
+
+
+class TeamViewSet(viewsets.ModelViewSet):
+    """Manage a school's staff users + roles (admin-only via RBAC)."""
+
+    serializer_class = StaffUserSerializer
+    rbac_resource = "team"
+
+    def get_queryset(self):
+        User = get_user_model()
+        return User.objects.all().order_by("-is_active", "first_name", "last_name")
+
+    def create(self, request, *args, **kwargs):
+        serializer = StaffCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+        try:
+            user = create_staff(
+                email=d["email"],
+                first_name=d["first_name"],
+                last_name=d.get("last_name", ""),
+                role=d["role"],
+                password=d["password"],
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
+        return Response(StaffUserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        # Don't let an admin lock themselves out.
+        if instance.pk == request.user.pk and request.data.get("is_active") is False:
+            raise ValidationError("You cannot deactivate your own account.")
+        allowed = {
+            k: request.data[k]
+            for k in ("first_name", "last_name", "role", "is_active")
+            if k in request.data
+        }
+        serializer = self.get_serializer(instance, data=allowed, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -223,9 +337,13 @@ class MeView(APIView):
     def get(self, request):
         from apps.schools.models import SchoolSettings
 
+        from .permissions import permissions_for
+
         data = UserSerializer(request.user).data
         # Onboarding gate: the school profile is "complete" once settings has a name.
         data["settings_complete"] = SchoolSettings.objects.exclude(name="").exists()
+        # Effective per-resource RBAC so the UI can hide forbidden actions.
+        data["permissions"] = permissions_for(request.user.role)
         return Response(data)
 
 

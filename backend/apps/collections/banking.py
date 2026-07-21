@@ -83,7 +83,9 @@ def _find_payment_for(line: BankStatementLine) -> Payment | None:
     # Else match on date proximity.
     lo = line.txn_date - timedelta(days=_MATCH_DATE_WINDOW)
     hi = line.txn_date + timedelta(days=_MATCH_DATE_WINDOW)
-    return candidates.filter(paid_at__date__gte=lo, paid_at__date__lte=hi).order_by("paid_at").first()
+    return (
+        candidates.filter(paid_at__date__gte=lo, paid_at__date__lte=hi).order_by("paid_at").first()
+    )
 
 
 @transaction.atomic

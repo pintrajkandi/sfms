@@ -1,10 +1,3 @@
-from django.contrib import admin
-
-from .models import LedgerEntry
-
-
-@admin.register(LedgerEntry)
-class LedgerEntryAdmin(admin.ModelAdmin):
-    list_display = ("entry_type", "category", "amount", "currency", "occurred_on")
-    list_filter = ("entry_type",)
-    search_fields = ("category", "description")
+"""No admin here — this app's models are tenant-scoped (TENANT_APPS); their tables
+do not exist in the public schema, so registering them on the admin would 500.
+The platform console lives in apps.tenants.admin; schools use the app UI (CLAUDE.md §3)."""

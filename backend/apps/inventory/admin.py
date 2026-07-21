@@ -1,10 +1,3 @@
-from django.contrib import admin
-
-from .models import InventoryItem
-
-
-@admin.register(InventoryItem)
-class InventoryItemAdmin(admin.ModelAdmin):
-    list_display = ("name", "sku", "category", "condition", "unit_cost", "is_active")
-    list_filter = ("category", "condition", "is_active")
-    search_fields = ("name", "sku", "supplier_name")
+"""No admin here — this app's models are tenant-scoped (TENANT_APPS); their tables
+do not exist in the public schema, so registering them on the admin would 500.
+The platform console lives in apps.tenants.admin; schools use the app UI (CLAUDE.md §3)."""

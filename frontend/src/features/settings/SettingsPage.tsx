@@ -1,27 +1,30 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/client";
-import { settings, type SchoolSettings, type SettingsFileField } from "@/api/resources";
+import { collections, settings, type SchoolSettings, type SettingsFileField } from "@/api/resources";
 import { Card } from "@/components/Card";
 import { Button, Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
 import { AcademicYearTab } from "./AcademicYearTab";
+import { ClassesPage } from "./ClassesPage";
+import { DepartmentsTab } from "./DepartmentsTab";
+import { FeeSetupPage } from "./FeeSetupPage";
 
 const TABS = [
   "School Info",
   "Branding & Logos",
   "Invoice Settings",
+  "Fee Setup",
+  "Classes & Sections",
+  "Departments",
+  "Payroll",
   "Contact Details",
   "Academic Year",
   "Notifications",
+  "Security",
 ] as const;
 type Tab = (typeof TABS)[number];
 
-const CURRENCIES = [
-  ["INR", "INR — Indian Rupee (₹)"],
-  ["USD", "USD — US Dollar ($)"],
-  ["EUR", "EUR — Euro (€)"],
-  ["GBP", "GBP — British Pound (£)"],
-];
+const CURRENCIES = [["INR", "INR — Indian Rupee (₹)"]];
 const COUNTRIES = ["India", "United States", "United Kingdom", "United Arab Emirates", "Singapore"];
 
 const BLANK: Partial<SchoolSettings> = {
@@ -150,9 +153,14 @@ export function SettingsPage() {
           {tab === "School Info" && <SchoolInfo form={form} set={set} />}
           {tab === "Branding & Logos" && <Branding form={form} set={set} onUpload={upload} />}
           {tab === "Invoice Settings" && <Invoice form={form} set={set} />}
+          {tab === "Fee Setup" && <FeeSetupPage embedded />}
+          {tab === "Classes & Sections" && <ClassesPage embedded />}
+          {tab === "Departments" && <DepartmentsTab />}
+          {tab === "Payroll" && <Payroll form={form} set={set} />}
           {tab === "Contact Details" && <Contact form={form} set={set} />}
           {tab === "Academic Year" && <AcademicYearTab />}
           {tab === "Notifications" && <Notifications form={form} set={set} />}
+          {tab === "Security" && <Security />}
         </Card>
       </div>
     </div>
@@ -355,6 +363,45 @@ function Notifications({ form, set }: SectionProps) {
           <span className="text-sm font-medium text-slate-800">Overdue alerts</span>
           <input type="checkbox" className="h-5 w-5 rounded border-slate-300" checked={!!form.notify_overdue} onChange={(e) => set("notify_overdue", e.target.checked)} />
         </label>
+      </div>
+    </Section>
+  );
+}
+
+function Payroll({ form, set }: SectionProps) {
+  return (
+    <Section title="Payroll" subtitle="Statutory deduction rates used when running payroll (PF / ESI / TDS)">
+      <Labeled label="PF rate (fraction, e.g. 0.12 = 12%)">
+        <TextInput type="number" step="0.0001" value={form.payroll_pf_rate ?? "0.12"} onChange={(e) => set("payroll_pf_rate", e.target.value)} />
+      </Labeled>
+      <Labeled label="PF wage ceiling">
+        <TextInput type="number" value={form.payroll_pf_ceiling ?? "15000"} onChange={(e) => set("payroll_pf_ceiling", e.target.value)} />
+      </Labeled>
+      <Labeled label="ESI employee rate (fraction, e.g. 0.0075)">
+        <TextInput type="number" step="0.0001" value={form.payroll_esi_rate ?? "0.0075"} onChange={(e) => set("payroll_esi_rate", e.target.value)} />
+      </Labeled>
+      <Labeled label="ESI wage threshold">
+        <TextInput type="number" value={form.payroll_esi_threshold ?? "21000"} onChange={(e) => set("payroll_esi_threshold", e.target.value)} />
+      </Labeled>
+      <Labeled label="Professional tax (flat)">
+        <TextInput type="number" value={form.payroll_professional_tax ?? "200"} onChange={(e) => set("payroll_professional_tax", e.target.value)} />
+      </Labeled>
+    </Section>
+  );
+}
+
+function Security() {
+  const { data } = useQuery({ queryKey: ["signing-key"], queryFn: () => collections.signingKey() });
+  return (
+    <Section title="Security" subtitle="The public key used to verify your digitally-signed receipts">
+      <div className="sm:col-span-2 space-y-2">
+        <p className="text-sm text-slate-600">
+          Receipts are signed with your school's private key ({data?.algorithm ?? "ed25519"}). Share this
+          public key with anyone who needs to independently verify a receipt's authenticity.
+        </p>
+        <pre className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
+{data?.public_pem ?? "Loading…"}
+        </pre>
       </div>
     </Section>
   );

@@ -14,6 +14,8 @@ import { ApiError } from "@/api/client";
 import { portal } from "@/api/portal";
 import type {
   ParentInvoice,
+  ParentMandate,
+  ParentReceipt,
   RazorpayConfig,
   StudentFeeSummary,
 } from "@/api/types";
@@ -238,6 +240,9 @@ function ParentDashboard({ token, studentName }: { token: string; studentName: s
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<number | null>(null);
   const [toast, setToast] = useState<ToastState>(null);
+  const [autopay, setAutopay] = useState<ParentMandate | null>(null);
+  const [receipts, setReceipts] = useState<ParentReceipt[]>([]);
+  const [settingUp, setSettingUp] = useState(false);
 
   const refetch = useCallback(async () => {
     const [feesData, invoicesData] = await Promise.all([
@@ -253,15 +258,19 @@ function ParentDashboard({ token, studentName }: { token: string; studentName: s
     setLoading(true);
     (async () => {
       try {
-        const [feesData, invoicesData, cfg] = await Promise.all([
+        const [feesData, invoicesData, cfg, auto, recs] = await Promise.all([
           portal.fees(token),
           portal.invoices(token),
           portal.razorpayConfig().catch(() => null),
+          portal.autopay(token).catch(() => ({ mandate: null })),
+          portal.receipts(token).catch(() => []),
         ]);
         if (!active) return;
         setFees(feesData);
         setInvoices(invoicesData);
         setConfig(cfg);
+        setAutopay(auto.mandate);
+        setReceipts(recs);
       } catch (err) {
         if (!active) return;
         const detail = err instanceof ApiError ? err.detail : "Could not load your fee details.";
@@ -354,8 +363,24 @@ function ParentDashboard({ token, studentName }: { token: string; studentName: s
     }
   }
 
+  async function setupAutopay() {
+    setSettingUp(true);
+    setToast(null);
+    try {
+      const { mandate } = await portal.setupAutopay(token);
+      setAutopay(mandate);
+      setToast({ message: "UPI Autopay is set up. Due fees will be auto-debited.", tone: "success" });
+    } catch (err) {
+      const detail = err instanceof ApiError ? err.detail : "Could not set up Autopay.";
+      setToast({ message: detail, tone: "error" });
+    } finally {
+      setSettingUp(false);
+    }
+  }
+
   const payable = invoices.filter((inv) => Number(inv.balance) > 0);
   const canPay = Boolean(config?.enabled) && payable.length > 0;
+  const autopayActive = autopay?.status === "active";
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -439,6 +464,77 @@ function ParentDashboard({ token, studentName }: { token: string; studentName: s
                           {payingId === inv.id ? "Opening…" : "Pay Now"}
                         </Button>
                       </div>
+                      {inv.installments && inv.installments.length > 0 && (
+                        <div className="w-full border-t border-slate-100 pt-3">
+                          <p className="mb-1 text-xs font-medium text-slate-500">Instalment plan</p>
+                          <div className="flex flex-wrap gap-2">
+                            {inv.installments.map((it) => (
+                              <span
+                                key={it.sequence}
+                                className={`rounded-lg px-2 py-1 text-xs ${
+                                  it.status === "paid"
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : it.status === "overdue"
+                                      ? "bg-rose-50 text-rose-600"
+                                      : "bg-slate-50 text-slate-500"
+                                }`}
+                              >
+                                #{it.sequence} · {formatMoney(it.amount)} · {formatDate(it.due_date)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* UPI Autopay */}
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">UPI Autopay</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {autopayActive
+                      ? `Active — up to ${formatMoney(autopay?.max_amount ?? "0", autopay?.currency)} per debit.`
+                      : "Never miss a due date — authorise automatic fee debits."}
+                  </p>
+                </div>
+                {autopayActive ? (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">● Active</span>
+                ) : (
+                  <Button type="button" onClick={() => void setupAutopay()} disabled={settingUp}>
+                    {settingUp ? "Setting up…" : "Set up Autopay"}
+                  </Button>
+                )}
+              </div>
+              {autopay && !autopayActive && autopay.auth_url && (
+                <a href={autopay.auth_url} target="_blank" rel="noopener" className="mt-3 inline-block text-sm font-medium text-brand underline">
+                  Complete authorisation ↗
+                </a>
+              )}
+            </div>
+
+            {/* Signed receipts */}
+            {receipts.length > 0 && (
+              <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+                <h2 className="px-6 py-4 text-base font-semibold text-slate-900">Receipts</h2>
+                <div className="divide-y divide-slate-50">
+                  {receipts.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between px-6 py-3 text-sm">
+                      <div>
+                        <p className="font-medium text-slate-800">{formatMoney(r.amount, r.currency)} · {r.method}</p>
+                        <p className="text-xs text-slate-400">#{r.invoice_number} · {formatDate(r.paid_at)}</p>
+                      </div>
+                      {r.signed && r.valid ? (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">🔒 Verified</span>
+                      ) : r.signed ? (
+                        <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-600">⚠ Tampered</span>
+                      ) : (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">Unsigned</span>
+                      )}
                     </div>
                   ))}
                 </div>

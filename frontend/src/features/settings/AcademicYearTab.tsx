@@ -23,6 +23,15 @@ export function AcademicYearTab() {
     onError: (e) => setErr(e instanceof ApiError ? e.detail : "Could not add academic year."),
   });
 
+  const makeCurrent = useMutation({
+    mutationFn: (id: number) => academicYears.setCurrent(id),
+    onSuccess: () => {
+      setErr("");
+      qc.invalidateQueries({ queryKey: ["academic-years"] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.detail : "Could not set current academic year."),
+  });
+
   return (
     <>
       <div className="mb-5">
@@ -38,6 +47,7 @@ export function AcademicYearTab() {
               <th className="px-4 py-2 font-medium">Start</th>
               <th className="px-4 py-2 font-medium">End</th>
               <th className="px-4 py-2 font-medium">Current</th>
+              <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -46,12 +56,30 @@ export function AcademicYearTab() {
                 <td className="px-4 py-2 font-medium text-slate-800">{y.label}</td>
                 <td className="px-4 py-2 text-slate-600">{formatDate(y.start_date)}</td>
                 <td className="px-4 py-2 text-slate-600">{formatDate(y.end_date)}</td>
-                <td className="px-4 py-2">{y.is_current ? "✅" : "—"}</td>
+                <td className="px-4 py-2">
+                  {y.is_current ? (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Current</span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-4 py-2 text-right">
+                  {!y.is_current && (
+                    <button
+                      type="button"
+                      onClick={() => makeCurrent.mutate(y.id)}
+                      disabled={makeCurrent.isPending}
+                      className="text-xs font-medium text-brand hover:underline disabled:opacity-50"
+                    >
+                      Set as current
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
             {data?.results.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-3 text-slate-400">
+                <td colSpan={5} className="px-4 py-3 text-slate-400">
                   No academic years yet.
                 </td>
               </tr>

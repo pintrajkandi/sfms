@@ -12,7 +12,6 @@ export interface Student {
   full_name: string;
   date_of_birth: string | null;
   gender: string;
-  nationality: string;
   photo: string | null;
   email: string;
   phone: string;
@@ -22,13 +21,27 @@ export interface Student {
   guardian_phone: string;
   guardian_email: string;
   department: string;
-  grade: string;
+  grade: string; // class (managed)
   section: string;
-  program: string;
   enrollment_date: string | null;
   status: string;
   previous_school: string;
   notes: string;
+}
+
+export interface Section {
+  id: number;
+  school_class: number;
+  name: string;
+  is_active: boolean;
+}
+
+export interface SchoolClass {
+  id: number;
+  name: string;
+  order: number;
+  is_active: boolean;
+  sections: Section[];
 }
 
 export interface InvoiceLine {
@@ -189,6 +202,55 @@ export interface DefaulterReport {
   count: number;
 }
 
+export type RiskBand = "low" | "medium" | "high";
+
+export interface RiskRow {
+  student: string;
+  student_id: string;
+  grade: string;
+  outstanding: string;
+  risk_score: number;
+  risk_band: RiskBand;
+  days_overdue: number;
+  reasons: string[];
+  recommended_action: string;
+}
+
+export interface RiskReport {
+  at_risk: RiskRow[];
+  counts: Record<RiskBand, number>;
+  total_at_risk: number;
+}
+
+export interface AssistantAnswer {
+  answer: string;
+  source: string;
+  at_risk_count: number;
+}
+
+export type StaffRole = "admin" | "finance" | "hod" | "staff" | "front_desk";
+
+export interface TeamUser {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: StaffRole;
+  is_active: boolean;
+  email_verified: boolean;
+  last_login: string | null;
+  date_joined: string;
+}
+
+export interface StaffCreateInput {
+  email: string;
+  first_name: string;
+  last_name?: string;
+  role: StaffRole;
+  password: string;
+}
+
 export interface CollectionStats {
   total_collected: string;
   pending_dues: string;
@@ -232,15 +294,19 @@ export interface Teacher {
   qualification: string;
   bio: string;
   base_salary: string;
+  hra: string;
+  medical_allowance: string;
+  other_allowance: string;
   currency: string;
   pay_frequency: string;
-  last_increment_date: string | null;
-  increment_percent: string;
-  next_increment_due: string | null;
-  increment_reason: string;
+  pf_amount: string;
+  tds_amount: string;
+  other_deduction: string;
+  account_holder_name: string;
   bank_name: string;
   account_number?: string;
-  routing_code: string;
+  branch: string;
+  ifsc_code: string;
   classes: TeacherClass[];
 }
 
@@ -263,7 +329,11 @@ export interface Payout {
   deductions: string;
   net_amount: string;
   currency: string;
+  days_present: number | null;
+  days_absent: number | null;
+  deduction_reason: string;
   payment_method: string;
+  payment_reference: string;
   notes: string;
   status: PayoutStatus;
   approvals: PayoutApproval[];
@@ -349,6 +419,14 @@ export interface ParentVerifyResult {
   student_id: string;
 }
 
+export interface ParentInstallment {
+  sequence: number;
+  due_date: string | null;
+  amount: string;
+  amount_paid: string;
+  status: string;
+}
+
 export interface ParentInvoice {
   id: number;
   invoice_number: string;
@@ -357,6 +435,27 @@ export interface ParentInvoice {
   balance: string;
   status: InvoiceStatus;
   due_date: string | null;
+  installments?: ParentInstallment[];
+}
+
+export interface ParentMandate {
+  id: number;
+  status: string;
+  max_amount: string;
+  currency: string;
+  auth_url: string;
+  next_charge_on: string | null;
+}
+
+export interface ParentReceipt {
+  id: number;
+  invoice_number: string;
+  amount: string;
+  currency: string;
+  method: string;
+  paid_at: string;
+  signed: boolean;
+  valid: boolean;
 }
 
 export interface ParentPayOrder {

@@ -55,6 +55,7 @@ export const authApi = {
   csrf: () => api.get<{ detail: string }>("/auth/csrf/"),
   tenant: () => api.get<TenantInfo>("/auth/tenant/"),
   login: (payload: LoginPayload) => api.post<User>("/auth/login/", payload),
+  impersonate: (ticket: string) => api.post<User>("/auth/impersonate/", { ticket }),
   logout: () => api.post<void>("/auth/logout/", {}),
   me: () => api.get<User>("/auth/me/"),
 

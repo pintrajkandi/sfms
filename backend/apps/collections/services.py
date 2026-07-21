@@ -168,6 +168,9 @@ def create_invoice(
         ),
         actor=actor,
     )
+    from apps.finance.ledger import _safe, post_invoice_issued
+
+    _safe(post_invoice_issued, invoice)
     return invoice
 
 
@@ -244,6 +247,23 @@ def record_payment(
         ),
         actor=actor,
     )
+
+    # Digitally sign the receipt — best-effort, never breaks the payment write.
+    try:
+        from .signatures import sign_receipt
+
+        sign_receipt(payment, actor=actor)
+    except Exception as exc:
+        log.warning(
+            "receipt signing skipped payment=%s error=%s",
+            payment.id,
+            exc,
+            **ctx(user=getattr(actor, "id", "-"), entity=payment.id, action="sign_receipt"),
+        )
+
+    from apps.finance.ledger import _safe, post_payment
+
+    _safe(post_payment, payment)
     return payment
 
 
@@ -448,6 +468,9 @@ def record_refund(
         summary=f"Refund {amount} {invoice.currency} on {invoice.invoice_number}",
         actor=actor,
     )
+    from apps.finance.ledger import _safe, post_refund
+
+    _safe(post_refund, refund)
     return refund
 
 

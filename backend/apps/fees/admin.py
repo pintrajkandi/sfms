@@ -1,7 +1,3 @@
-from django.contrib import admin
-
-from .models import FeeCategory, FeePlan, FeeType
-
-admin.site.register(FeeCategory)
-admin.site.register(FeeType)
-admin.site.register(FeePlan)
+"""No admin here — this app's models are tenant-scoped (TENANT_APPS); their tables
+do not exist in the public schema, so registering them on the admin would 500.
+The platform console lives in apps.tenants.admin; schools use the app UI (CLAUDE.md §3)."""

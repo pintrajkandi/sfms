@@ -1,4 +1,4 @@
-"""Payout net math + guarded approval transitions (CLAUDE.md §8)."""
+"""Payout net math + one-step paid/rejected transitions (CLAUDE.md §8)."""
 
 from decimal import Decimal
 
@@ -19,28 +19,25 @@ def test_net_is_base_plus_bonus_minus_deductions():
     assert compute_net("5000.00", "500.00", "250.00") == Decimal("5250.00")
 
 
-def test_full_approval_chain(tenant_ctx):
+def test_submitted_can_be_paid_directly(tenant_ctx):
+    """No HOD/Finance stages — a submitted payout is marked paid in one step."""
     payout = create_payout(teacher=_teacher(), base_amount="5000", pay_period="2024-07")
     assert payout.status == PayoutStatus.SUBMITTED
 
-    transition_payout(payout=payout, to_status=PayoutStatus.HOD_APPROVED)
-    transition_payout(payout=payout, to_status=PayoutStatus.FINANCE_APPROVED)
     payout = transition_payout(payout=payout, to_status=PayoutStatus.PROCESSED)
 
     assert payout.status == PayoutStatus.PROCESSED
-    assert payout.approvals.count() == 3
+    assert payout.approvals.count() == 1
 
 
-def test_cannot_skip_stages(tenant_ctx):
+def test_submitted_can_be_rejected(tenant_ctx):
     payout = create_payout(teacher=_teacher(), base_amount="5000", pay_period="2024-07")
-    with pytest.raises(InvalidTransition):
-        transition_payout(payout=payout, to_status=PayoutStatus.PROCESSED)
+    payout = transition_payout(payout=payout, to_status=PayoutStatus.REJECTED)
+    assert payout.status == PayoutStatus.REJECTED
 
 
 def test_processed_is_terminal(tenant_ctx):
     payout = create_payout(teacher=_teacher(), base_amount="5000", pay_period="2024-07")
-    transition_payout(payout=payout, to_status=PayoutStatus.HOD_APPROVED)
-    transition_payout(payout=payout, to_status=PayoutStatus.FINANCE_APPROVED)
     transition_payout(payout=payout, to_status=PayoutStatus.PROCESSED)
     with pytest.raises(InvalidTransition):
         transition_payout(payout=payout, to_status=PayoutStatus.REJECTED)

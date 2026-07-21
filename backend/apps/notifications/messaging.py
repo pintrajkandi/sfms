@@ -43,8 +43,15 @@ def sms_enabled() -> bool:
 
 
 def _normalize_phone(to_phone: str) -> str:
-    """Strip everything but digits (MSG91 wants a bare msisdn)."""
-    return re.sub(r"\D", "", to_phone or "")
+    """
+    Strip everything but digits (MSG91 wants a bare msisdn). A bare 10-digit
+    number (how students/guardians are stored) gets the default country code so
+    it's a valid msisdn for sending.
+    """
+    digits = re.sub(r"\D", "", to_phone or "")
+    if len(digits) == 10:
+        digits = f"{settings.SMS_DEFAULT_COUNTRY_CODE}{digits}"
+    return digits
 
 
 def _last4(phone: str) -> str:

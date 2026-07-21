@@ -13,15 +13,18 @@ from .serializers import (
 class FeeCategoryViewSet(viewsets.ModelViewSet):
     queryset = FeeCategory.objects.all()
     serializer_class = FeeCategorySerializer
+    rbac_resource = "fee-categories"
 
 
 class FeeTypeViewSet(viewsets.ModelViewSet):
     queryset = FeeType.objects.select_related("category").all()
     serializer_class = FeeTypeSerializer
+    rbac_resource = "fee-types"
 
 
 class FeePlanViewSet(viewsets.ModelViewSet):
     serializer_class = FeePlanSerializer
+    rbac_resource = "fee-plans"
 
     def get_queryset(self):
         qs = FeePlan.objects.alive().select_related("fee_type", "academic_year")
@@ -38,6 +41,7 @@ class DiscountRuleViewSet(viewsets.ModelViewSet):
     """Scholarship / concession / sibling rules (soft-deleted, never hard)."""
 
     serializer_class = DiscountRuleSerializer
+    rbac_resource = "discount-rules"
 
     def get_queryset(self):
         qs = DiscountRule.objects.alive().select_related("fee_type")
@@ -54,6 +58,7 @@ class StudentDiscountViewSet(viewsets.ModelViewSet):
     """Awards of a rule to a student (scholarship grants, etc.)."""
 
     serializer_class = StudentDiscountSerializer
+    rbac_resource = "student-discounts"
 
     def get_queryset(self):
         qs = StudentDiscount.objects.select_related("rule", "student")

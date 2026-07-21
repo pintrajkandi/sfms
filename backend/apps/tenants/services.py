@@ -104,6 +104,11 @@ def provision_school(
 
         send_verification_email(admin, school_name=name, slug=final_slug)
 
+        # Seed starter departments/classes/sections (admin can keep or delete).
+        from apps.schools.seed import seed_default_setup
+
+        seed_default_setup()
+
     log.info(
         "school provisioned slug=%s code=%s domain=%s",
         final_slug,

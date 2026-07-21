@@ -51,9 +51,7 @@ def _supplier_state() -> str:
         return settings.GST_SUPPLIER_STATE
     from apps.schools.models import SchoolSettings
 
-    return (
-        SchoolSettings.objects.values_list("state_province", flat=True).first() or ""
-    ).strip()
+    return (SchoolSettings.objects.values_list("state_province", flat=True).first() or "").strip()
 
 
 def _supplier_gstin() -> str:
@@ -61,9 +59,7 @@ def _supplier_gstin() -> str:
         return settings.GST_EINVOICE_GSTIN
     from apps.schools.models import SchoolSettings
 
-    return (
-        SchoolSettings.objects.values_list("tax_gst_number", flat=True).first() or ""
-    ).strip()
+    return (SchoolSettings.objects.values_list("tax_gst_number", flat=True).first() or "").strip()
 
 
 def _extract_tax(inclusive_amount: Decimal, rate: Decimal) -> tuple[Decimal, Decimal]:
@@ -219,8 +215,10 @@ def generate_einvoice(invoice: Invoice, *, actor=None) -> EInvoice:
     payload = build_payload(invoice, breakup)
 
     try:
-        result = _register_with_irp(payload) if einvoice_enabled() else _mock_registration(
-            invoice, payload
+        result = (
+            _register_with_irp(payload)
+            if einvoice_enabled()
+            else _mock_registration(invoice, payload)
         )
     except ServiceError as exc:
         ei = existing or EInvoice(invoice=invoice)

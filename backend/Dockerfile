@@ -6,9 +6,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# System deps for psycopg + Pillow + weasyprint-ish PDF rendering.
+# System deps for psycopg + Pillow + PDF rendering + pg_dump/pg_restore (backups).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev libjpeg-dev zlib1g-dev curl \
+    build-essential libpq-dev libjpeg-dev zlib1g-dev curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

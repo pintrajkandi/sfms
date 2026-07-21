@@ -57,6 +57,7 @@ TENANT_APPS = [
     "apps.finance",
     "apps.notifications",
     "apps.portal",
+    "apps.privacy",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [a for a in TENANT_APPS if a not in SHARED_APPS]
@@ -70,6 +71,8 @@ MIDDLEWARE = [
     # WhiteNoise serves /static/ (incl. admin assets) and short-circuits before the
     # tenant middleware, so static requests never need a resolved schema.
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # Gate the platform admin path by IP (no-op unless ADMIN_IP_ALLOWLIST is set).
+    "apps.core.middleware.AdminIPAllowlistMiddleware",
     "django_tenants.middleware.main.TenantMainMiddleware",  # first for all app requests
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -77,6 +80,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Idle-timeout the admin console (needs request.user; admin-path only).
+    "apps.core.middleware.AdminSessionTimeoutMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.core.middleware.RequestContextMiddleware",  # attaches tenant/user to logs
@@ -179,6 +184,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+        # Per-action RBAC — only bites viewsets that declare `rbac_resource`.
+        "apps.accounts.permissions.RolePermission",
     ],
     "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.DefaultPagination",
     "PAGE_SIZE": 25,
@@ -214,7 +221,20 @@ LOGGING = build_logging_config(level=env("LOG_LEVEL", default="INFO"))
 # --------------------------------------------------------------------------- #
 # Money defaults.
 # --------------------------------------------------------------------------- #
-DEFAULT_CURRENCY = env("DEFAULT_CURRENCY", default="USD")
+DEFAULT_CURRENCY = env("DEFAULT_CURRENCY", default="INR")
+
+# --------------------------------------------------------------------------- #
+# Platform admin console (public schema, superuser-only). The path is
+# env-driven so the master console isn't at the well-known /admin/; an optional
+# IP allowlist (comma-separated) restricts who can even reach it.
+# --------------------------------------------------------------------------- #
+ADMIN_URL = env("ADMIN_URL", default="admin/")
+ADMIN_IP_ALLOWLIST = env.list("ADMIN_IP_ALLOWLIST", default=[])
+# Idle timeout for the admin console (seconds) — logs an operator out after
+# inactivity, independent of the SPA's session. Sensitive actions (provision /
+# suspend) additionally require authentication within ADMIN_REAUTH_WINDOW.
+ADMIN_SESSION_TIMEOUT = env.int("ADMIN_SESSION_TIMEOUT", default=1800)  # 30 min
+ADMIN_REAUTH_WINDOW = env.int("ADMIN_REAUTH_WINDOW", default=600)  # 10 min
 
 # --------------------------------------------------------------------------- #
 # Auth0 (optional SSO for tenant login). When AUTH0_DOMAIN + AUTH0_AUDIENCE are
@@ -252,6 +272,8 @@ MSG91_WHATSAPP_NAMESPACE = env("MSG91_WHATSAPP_NAMESPACE", default="")
 MSG91_SMS_AUTHKEY = env("MSG91_SMS_AUTHKEY", default="")
 MSG91_SMS_SENDER_ID = env("MSG91_SMS_SENDER_ID", default="")  # 6-char DLT sender id
 MSG91_SMS_TEMPLATE_ID = env("MSG91_SMS_TEMPLATE_ID", default="")  # DLT-approved template
+# Prefixed to bare 10-digit phone numbers when building an msisdn for sending.
+SMS_DEFAULT_COUNTRY_CODE = env("SMS_DEFAULT_COUNTRY_CODE", default="91")
 
 # --------------------------------------------------------------------------- #
 # Staged fee reminders — days BEFORE the due date to nudge (T-N), plus a
@@ -274,6 +296,26 @@ GST_SUPPLIER_STATE = env("GST_SUPPLIER_STATE", default="")  # supplier state (pl
 
 # Cheque-bounce handling: default charge levied on a dishonoured cheque.
 CHEQUE_BOUNCE_CHARGE = env("CHEQUE_BOUNCE_CHARGE", default="0")
+
+# --------------------------------------------------------------------------- #
+# AI collections assistant (optional). When ANTHROPIC_API_KEY is set, the
+# /collections/assistant/ endpoint answers natural-language questions over the
+# tenant's collection data using Claude; otherwise it returns a deterministic
+# rule-based summary. Enabled check lives in apps.collections.assistant.
+# --------------------------------------------------------------------------- #
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
+ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-opus-4-8")
+
+# --------------------------------------------------------------------------- #
+# Payroll — statutory deduction defaults (India). Overridable per env; a payout
+# may also override any component explicitly. PF: 12% of basic capped at a wage
+# ceiling; ESI: 0.75% of gross while gross ≤ threshold; a flat professional tax.
+# --------------------------------------------------------------------------- #
+PAYROLL_PF_RATE = env("PAYROLL_PF_RATE", default="0.12")
+PAYROLL_PF_WAGE_CEILING = env("PAYROLL_PF_WAGE_CEILING", default="15000")
+PAYROLL_ESI_EMPLOYEE_RATE = env("PAYROLL_ESI_EMPLOYEE_RATE", default="0.0075")
+PAYROLL_ESI_WAGE_THRESHOLD = env("PAYROLL_ESI_WAGE_THRESHOLD", default="21000")
+PAYROLL_PROFESSIONAL_TAX = env("PAYROLL_PROFESSIONAL_TAX", default="200")
 
 # --------------------------------------------------------------------------- #
 # Parent portal — OTP + short-lived signed access token (no parent User model).

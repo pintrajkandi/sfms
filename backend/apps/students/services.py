@@ -5,10 +5,11 @@ from __future__ import annotations
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.audit import record_audit
 from apps.core.logging import ctx, get_logger
 from apps.core.search import update_search_vector
 
-from .models import Student
+from .models import EnrollmentStatus, Student
 
 log = get_logger("students")
 
@@ -45,10 +46,8 @@ _IMPORT_FIELDS = [
     "phone",
     "gender",
     "date_of_birth",
-    "nationality",
     "grade",
     "section",
-    "program",
     "guardian_name",
     "guardian_relation",
     "guardian_phone",
@@ -63,16 +62,14 @@ def import_template_rows() -> tuple[list[str], list[list[str]]]:
         "Emma",
         "Johnson",
         "emma@example.com",
-        "+1 555 0100",
+        "9876543210",
         "female",
         "2010-05-01",
-        "American",
         "Grade 9",
         "A",
-        "Science",
         "Robert Johnson",
         "father",
-        "+1 555 0101",
+        "9876543211",
         "robert@example.com",
         "",
     ]
@@ -122,3 +119,57 @@ def create_student(*, actor=None, **fields) -> Student:
         **ctx(user=getattr(actor, "id", "-"), entity=student.id, action="enroll_student"),
     )
     return student
+
+
+@transaction.atomic
+def promote_students(
+    *,
+    source_year,
+    target_year,
+    grade_map: dict[str, str] | None = None,
+    graduating_grades=None,
+    actor=None,
+) -> dict:
+    """
+    Advance active students of `source_year` into `target_year`.
+
+    `grade_map` maps old grade → new grade (grades not listed keep their grade).
+    Students whose grade is in `graduating_grades` are marked GRADUATED and stay
+    in the source year. Returns {promoted, graduated}.
+    """
+    grade_map = grade_map or {}
+    graduating = set(graduating_grades or [])
+
+    students = Student.objects.alive().filter(
+        academic_year=source_year, status=EnrollmentStatus.ACTIVE
+    )
+    promoted = graduated = 0
+    for student in students:
+        if student.grade in graduating:
+            student.status = EnrollmentStatus.GRADUATED
+            student.save(update_fields=["status", "updated_at"])
+            graduated += 1
+            continue
+        student.grade = grade_map.get(student.grade, student.grade)
+        student.academic_year = target_year
+        student.save(update_fields=["grade", "academic_year", "updated_at"])
+        promoted += 1
+
+    log.info(
+        "students promoted source=%s target=%s promoted=%s graduated=%s",
+        source_year.label,
+        target_year.label,
+        promoted,
+        graduated,
+        **ctx(user=getattr(actor, "id", "-"), entity=target_year.pk, action="promote_students"),
+    )
+    record_audit(
+        action="students.promoted",
+        entity=target_year,
+        summary=(
+            f"Promoted {promoted}, graduated {graduated}: "
+            f"{source_year.label} → {target_year.label}"
+        ),
+        actor=actor,
+    )
+    return {"promoted": promoted, "graduated": graduated}

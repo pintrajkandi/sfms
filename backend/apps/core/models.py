@@ -86,9 +86,7 @@ class AuditLog(models.Model):
     """
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    actor = models.ForeignKey(
-        "accounts.User", on_delete=models.SET_NULL, null=True, blank=True
-    )
+    actor = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, blank=True)
     actor_label = models.CharField(max_length=200, blank=True)  # snapshot (user may be deleted)
     action = models.CharField(max_length=64, db_index=True)  # e.g. "invoice.created"
     entity_type = models.CharField(max_length=64, blank=True)  # e.g. "Invoice"

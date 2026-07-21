@@ -1,9 +1,12 @@
-import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
-import { teachers } from "@/api/resources";
+import { departments, teachers } from "@/api/resources";
 import type { TeacherClass } from "@/api/types";
+import { DatePicker } from "@/components/DatePicker";
 import { Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
+import { formatMoney } from "@/lib/money";
 import { log } from "@/lib/logger";
 
 const STATUSES = [
@@ -21,8 +24,10 @@ const EMPTY = {
   address: "", status: "active",
   employee_id: "", department: "", joining_date: "", employment_type: "",
   years_of_experience: "", qualification: "", bio: "",
-  base_salary: "0.00", pay_frequency: "monthly", last_increment_date: "",
-  increment_percent: "", next_increment_due: "", increment_reason: "",
+  base_salary: "0.00", hra: "0.00", medical_allowance: "0.00", other_allowance: "0.00",
+  pay_frequency: "monthly",
+  pf_amount: "0.00", tds_amount: "0.00", other_deduction: "0.00",
+  account_holder_name: "", bank_name: "", account_number: "", branch: "", ifsc_code: "",
 };
 
 type Icon = { className?: string };
@@ -56,6 +61,8 @@ function Section({ icon, tint, title, action, children }: { icon: React.ReactNod
 
 export function AddTeacherPage() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
   const [form, setForm] = useState({ ...EMPTY });
   const [classes, setClasses] = useState<TeacherClass[]>([{ class_name: "", role_in_class: "", academic_year: "2024-2025" }]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -65,6 +72,35 @@ export function AddTeacherPage() {
   const [saving, setSaving] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const num = (v: string) => Number.parseFloat(v || "0") || 0;
+  const netSalary = formatMoney(
+    (num(form.base_salary) + num(form.hra) + num(form.medical_allowance) + num(form.other_allowance)
+      - num(form.pf_amount) - num(form.tds_amount) - num(form.other_deduction)).toFixed(2),
+  );
+
+  const deptList = useQuery({ queryKey: ["departments"], queryFn: () => departments.list() });
+  const teacherList = useQuery({ queryKey: ["teachers"], queryFn: () => teachers.list() });
+  const existing = useQuery({
+    queryKey: ["teacher", id],
+    queryFn: () => teachers.get(id!),
+    enabled: isEdit,
+  });
+
+  useEffect(() => {
+    if (!existing.data) return;
+    const t = existing.data as unknown as Record<string, unknown>;
+    setForm((f) => {
+      const next = { ...f };
+      (Object.keys(EMPTY) as (keyof typeof EMPTY)[]).forEach((k) => {
+        const v = t[k];
+        if (v !== null && v !== undefined) next[k] = String(v);
+      });
+      return next;
+    });
+    const rows = (existing.data.classes ?? []) as TeacherClass[];
+    if (rows.length) setClasses(rows.map((r) => ({ class_name: r.class_name, role_in_class: r.role_in_class ?? "", academic_year: r.academic_year ?? "2024-2025" })));
+  }, [existing.data]);
 
   function pickPhoto(file: File) {
     setPhotoFile(file);
@@ -76,7 +112,7 @@ export function AddTeacherPage() {
   }
 
   function validate(): boolean {
-    const req: (keyof typeof form)[] = ["first_name", "last_name", "email", "employee_id", "joining_date", "base_salary", "increment_percent"];
+    const req: (keyof typeof form)[] = ["first_name", "last_name"];
     const next: Record<string, string> = {};
     req.forEach((k) => !form[k] && (next[k] = "Required"));
     setErrors(next);
@@ -91,9 +127,9 @@ export function AddTeacherPage() {
       const scalars = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== "")) as Record<string, unknown>;
       if (form.years_of_experience) scalars.years_of_experience = Number(form.years_of_experience);
       const payload = { ...scalars, classes: classes.filter((c) => c.class_name) };
-      const created = await teachers.create(payload);
-      if (photoFile) await teachers.uploadPhoto(created.id, photoFile);
-      log.info("teacher added", { entity: created.id, action: "add_teacher" });
+      const saved = isEdit ? await teachers.update(id!, payload) : await teachers.create(payload);
+      if (photoFile) await teachers.uploadPhoto(saved.id, photoFile);
+      log.info(isEdit ? "teacher updated" : "teacher added", { entity: saved.id, action: isEdit ? "edit_teacher" : "add_teacher" });
       navigate("/payouts");
     } catch (err) {
       if (err instanceof ApiError && err.body && typeof err.body === "object") setErrors(err.body as Record<string, string>);
@@ -110,8 +146,8 @@ export function AddTeacherPage() {
         <div className="flex items-center gap-4">
           <button onClick={() => navigate("/payouts")} className="text-sm font-medium text-white/80 hover:text-white">← Back</button>
           <div className="border-l border-white/30 pl-4">
-            <h1 className="text-2xl font-bold">Add New Teacher</h1>
-            <p className="text-sm text-white/80">Fill in the details to register a new teacher.</p>
+            <h1 className="text-2xl font-bold">{isEdit ? "Edit Teacher" : "Add New Teacher"}</h1>
+            <p className="text-sm text-white/80">{isEdit ? "Update the teacher's details." : "Fill in the details to register a new teacher."}</p>
           </div>
         </div>
         <span className="text-sm font-medium text-white/90">👥 Teacher Management</span>
@@ -140,7 +176,7 @@ export function AddTeacherPage() {
               <Labeled label="Last name" required error={errors.last_name}>
                 <TextInput placeholder="e.g. Johnson" value={form.last_name} onChange={(e) => set("last_name", e.target.value)} />
               </Labeled>
-              <Labeled label="Email address" required error={errors.email}>
+              <Labeled label="Email address" error={errors.email}>
                 <TextInput type="email" placeholder="teacher@school.edu" value={form.email} onChange={(e) => set("email", e.target.value)} />
               </Labeled>
               <Labeled label="Phone number">
@@ -155,7 +191,7 @@ export function AddTeacherPage() {
                 </Select>
               </Labeled>
               <Labeled label="Date of birth">
-                <TextInput type="date" value={form.date_of_birth} onChange={(e) => set("date_of_birth", e.target.value)} />
+                <DatePicker value={form.date_of_birth} onChange={(v) => set("date_of_birth", v)} minYear={1950} maxYear={new Date().getFullYear()} placeholder="Select birth date" />
               </Labeled>
               <Labeled label="Address" full>
                 <TextInput placeholder="Street, City, State, ZIP" value={form.address} onChange={(e) => set("address", e.target.value)} />
@@ -165,14 +201,21 @@ export function AddTeacherPage() {
 
           <Section icon={<CaseIcon className="h-5 w-5 text-emerald-600" />} tint="bg-emerald-50" title="Professional Details">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Labeled label="Employee ID" required error={errors.employee_id}>
-                <TextInput placeholder="e.g. TCH-2024-001" value={form.employee_id} onChange={(e) => set("employee_id", e.target.value)} />
+              <Labeled label="Employee ID" error={errors.employee_id}>
+                <TextInput className="bg-slate-50 text-slate-500" placeholder="Auto-generated on save" value={form.employee_id} readOnly />
               </Labeled>
               <Labeled label="Department">
-                <TextInput placeholder="e.g. Mathematics" value={form.department} onChange={(e) => set("department", e.target.value)} />
+                {deptList.data && deptList.data.results.length > 0 ? (
+                  <Select value={form.department} onChange={(e) => set("department", e.target.value)}>
+                    <option value="">Select department</option>
+                    {deptList.data.results.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  </Select>
+                ) : (
+                  <TextInput placeholder="Add departments in Settings → Departments" value={form.department} onChange={(e) => set("department", e.target.value)} />
+                )}
               </Labeled>
-              <Labeled label="Joining date" required error={errors.joining_date}>
-                <TextInput type="date" value={form.joining_date} onChange={(e) => set("joining_date", e.target.value)} />
+              <Labeled label="Joining date" error={errors.joining_date}>
+                <DatePicker value={form.joining_date} onChange={(v) => set("joining_date", v)} minYear={2000} placeholder="Select joining date" />
               </Labeled>
               <Labeled label="Employment type">
                 <Select value={form.employment_type} onChange={(e) => set("employment_type", e.target.value)}>
@@ -225,33 +268,69 @@ export function AddTeacherPage() {
             </div>
           </Section>
 
-          <Section icon={<TrendIcon className="h-5 w-5 text-emerald-600" />} tint="bg-emerald-50" title="Salary & Increment">
+          <Section icon={<TrendIcon className="h-5 w-5 text-emerald-600" />} tint="bg-emerald-50" title="Salary Structure (monthly, ₹)">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-400">Earnings</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Labeled label="Base salary" required error={errors.base_salary}>
+              <Labeled label="Basic" error={errors.base_salary}>
                 <TextInput placeholder="0.00" value={form.base_salary} onChange={(e) => set("base_salary", e.target.value)} />
               </Labeled>
-              <Labeled label="Pay frequency">
-                <Select value={form.pay_frequency} onChange={(e) => set("pay_frequency", e.target.value)}>
-                  <option value="monthly">Monthly</option>
-                  <option value="biweekly">Bi-weekly</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="annual">Annual</option>
-                </Select>
+              <Labeled label="HRA">
+                <TextInput placeholder="0.00" value={form.hra} onChange={(e) => set("hra", e.target.value)} />
               </Labeled>
-              <Labeled label="Last increment date">
-                <TextInput type="date" value={form.last_increment_date} onChange={(e) => set("last_increment_date", e.target.value)} />
+              <Labeled label="Medical allowance">
+                <TextInput placeholder="0.00" value={form.medical_allowance} onChange={(e) => set("medical_allowance", e.target.value)} />
               </Labeled>
-              <Labeled label="Increment %" required error={errors.increment_percent}>
-                <TextInput type="number" placeholder="e.g. 10" value={form.increment_percent} onChange={(e) => set("increment_percent", e.target.value)} />
+              <Labeled label="Other allowance">
+                <TextInput placeholder="0.00" value={form.other_allowance} onChange={(e) => set("other_allowance", e.target.value)} />
               </Labeled>
-              <Labeled label="Next increment due">
-                <TextInput type="date" value={form.next_increment_due} onChange={(e) => set("next_increment_due", e.target.value)} />
+            </div>
+            <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wide text-slate-400">Deductions</p>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <Labeled label="PF">
+                <TextInput placeholder="0.00" value={form.pf_amount} onChange={(e) => set("pf_amount", e.target.value)} />
               </Labeled>
-              <Labeled label="Increment reason">
-                <TextInput placeholder="e.g. Annual review, promotion" value={form.increment_reason} onChange={(e) => set("increment_reason", e.target.value)} />
+              <Labeled label="TDS">
+                <TextInput placeholder="0.00" value={form.tds_amount} onChange={(e) => set("tds_amount", e.target.value)} />
+              </Labeled>
+              <Labeled label="Other deductions">
+                <TextInput placeholder="0.00" value={form.other_deduction} onChange={(e) => set("other_deduction", e.target.value)} />
+              </Labeled>
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
+              <span className="font-medium text-slate-600">Estimated net (monthly)</span>
+              <span className="text-lg font-bold text-brand">{netSalary}</span>
+            </div>
+          </Section>
+
+          <Section icon={<CaseIcon className="h-5 w-5 text-brand" />} tint="bg-brand-light" title="Bank Account Details">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Labeled label="Account holder name">
+                <TextInput placeholder="e.g. Sarah Johnson" value={form.account_holder_name} onChange={(e) => set("account_holder_name", e.target.value)} />
+              </Labeled>
+              <Labeled label="Account number" error={errors.account_number}>
+                <TextInput inputMode="numeric" placeholder="e.g. 50100123456789" value={form.account_number} onChange={(e) => set("account_number", e.target.value.replace(/\D/g, ""))} />
+              </Labeled>
+              <Labeled label="Bank name">
+                <TextInput placeholder="e.g. HDFC Bank" value={form.bank_name} onChange={(e) => set("bank_name", e.target.value)} />
+              </Labeled>
+              <Labeled label="Branch">
+                <TextInput placeholder="e.g. MG Road, Bengaluru" value={form.branch} onChange={(e) => set("branch", e.target.value)} />
+              </Labeled>
+              <Labeled label="IFSC code" full error={errors.ifsc_code}>
+                <TextInput maxLength={11} placeholder="e.g. HDFC0001234" value={form.ifsc_code} onChange={(e) => set("ifsc_code", e.target.value.toUpperCase().slice(0, 11))} />
               </Labeled>
             </div>
           </Section>
+
+          {/* Submit button at the end of the form */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => navigate("/payouts")} className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button type="button" onClick={submit} disabled={saving} className="rounded-xl bg-brand-gradient px-8 py-3 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
+              {saving ? "Saving…" : isEdit ? "✓ Save Changes" : "＋ Add Teacher"}
+            </button>
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -276,17 +355,31 @@ export function AddTeacherPage() {
           </section>
 
           <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-slate-900">Quick Actions</h2>
-            <div className="space-y-2">
-              <button type="button" onClick={submit} disabled={saving} className="w-full rounded-lg bg-brand-gradient py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50">
-                {saving ? "Saving…" : "＋ Add Teacher"}
-              </button>
-              <button type="button" disabled className="w-full cursor-not-allowed rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-400">
-                Edit Teacher
-              </button>
-              <button type="button" disabled className="w-full cursor-not-allowed rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-400">
-                Remove Teacher
-              </button>
+            <h2 className="mb-1 text-base font-semibold text-slate-900">Net salary</h2>
+            <p className="text-xs text-slate-400">Earnings − deductions (monthly)</p>
+            <p className="mt-3 text-2xl font-bold text-brand">{netSalary}</p>
+          </section>
+
+          <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-900">Teachers</h2>
+              <span className="text-xs text-slate-400">{teacherList.data?.count ?? 0}</span>
+            </div>
+            <div className="max-h-80 space-y-1 overflow-y-auto">
+              {teacherList.data?.results.map((t) => (
+                <Link
+                  key={t.id}
+                  to={`/teachers/${t.id}/edit`}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-slate-50 ${String(t.id) === id ? "bg-brand-light" : ""}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-slate-800">{t.full_name}</span>
+                    <span className="block truncate text-xs text-slate-400">{t.employee_id}{t.department ? ` · ${t.department}` : ""}</span>
+                  </span>
+                  <span className="text-xs text-brand">Edit</span>
+                </Link>
+              ))}
+              {teacherList.data?.results.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">No teachers yet.</p>}
             </div>
           </section>
         </div>

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from django.core.cache import cache
+from django.db import transaction
 
+from apps.core.audit import record_audit
 from apps.core.email import send_mail_async
 from apps.core.logging import ctx, get_logger
+from apps.core.services import ServiceError
 
 from .tokens import frontend_link, make_email_token
 
@@ -45,3 +48,42 @@ def send_verification_email(user, *, school_name: str, slug: str | None) -> None
         "verification email queued",
         **ctx(user=user.id, entity=slug, action="send_verification"),
     )
+
+
+@transaction.atomic
+def create_staff(*, email, first_name, last_name, role, password, actor=None):
+    """
+    Add a staff member to the current school (tenant schema). The admin sets an
+    initial password; the user can change it later via forgot-password. Created
+    users are email-verified (an admin vouches for them).
+    """
+    from .models import User
+
+    email = email.strip().lower()
+    if User.objects.filter(username__iexact=email).exists():
+        raise ServiceError("A user with this email already exists.")
+
+    user = User(
+        username=email,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        role=role,
+        email_verified=True,
+    )
+    user.set_password(password)
+    user.save()
+
+    log.info(
+        "staff created email=%s role=%s",
+        email,
+        role,
+        **ctx(user=getattr(actor, "id", "-"), entity=user.id, action="create_staff"),
+    )
+    record_audit(
+        action="staff.created",
+        entity=user,
+        summary=f"Added {user.get_full_name() or email} as {role}",
+        actor=actor,
+    )
+    return user

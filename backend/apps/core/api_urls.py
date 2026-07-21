@@ -7,25 +7,33 @@ from rest_framework.routers import DefaultRouter
 from apps.accounts.api import (
     Auth0LoginView,
     CsrfView,
+    ImpersonateView,
     LoginView,
     LogoutView,
     MeView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ResendVerificationView,
+    TeamViewSet,
     TenantInfoView,
     VerifyEmailView,
 )
 from apps.collections.views import (
     BankStatementViewSet,
+    CollectionAssistantView,
     CollectionDashboardView,
+    CollectionRiskView,
     CollectionStatsView,
     DefaultersView,
     InvoiceViewSet,
+    MandateViewSet,
+    ParentLedgerView,
     PaymentViewSet,
     RazorpayConfigView,
     RazorpayOrderView,
     RazorpayVerifyView,
+    SigningKeyView,
+    StudentLedgerView,
 )
 from apps.core.audit_views import AuditLogViewSet
 from apps.core.logging_api import ClientLogView
@@ -37,9 +45,32 @@ from apps.fees.views import (
     FeeTypeViewSet,
     StudentDiscountViewSet,
 )
-from apps.finance.views import AccountingExportView, DashboardView, LedgerEntryViewSet
+from apps.finance.views import (
+    AccountingExportView,
+    AccountViewSet,
+    BalanceSheetView,
+    DashboardView,
+    DayBookView,
+    GeneralLedgerView,
+    JournalEntryViewSet,
+    LedgerEntryViewSet,
+    ProfitLossView,
+    TrialBalanceView,
+)
 from apps.inventory.views import InventoryItemViewSet
-from apps.schools.views import AcademicYearViewSet, SchoolSettingsViewSet
+from apps.privacy.views import (
+    ConsentViewSet,
+    DataSubjectRequestViewSet,
+    StudentPrivacyView,
+)
+from apps.schools.views import (
+    AcademicYearViewSet,
+    DepartmentViewSet,
+    SchoolClassViewSet,
+    SchoolSettingsViewSet,
+    SectionViewSet,
+    SupportTicketViewSet,
+)
 from apps.staff.views import PayoutViewSet, TeacherViewSet
 from apps.students.views import StudentViewSet
 
@@ -57,8 +88,20 @@ router.register("payouts", PayoutViewSet, basename="payout")
 router.register("expenses", ExpenseViewSet, basename="expense")
 router.register("inventory", InventoryItemViewSet, basename="inventory")
 router.register("ledger", LedgerEntryViewSet, basename="ledger")
+router.register("accounts", AccountViewSet, basename="account")
+router.register("journal-entries", JournalEntryViewSet, basename="journal-entry")
 router.register("academic-years", AcademicYearViewSet, basename="academic-year")
+router.register("classes", SchoolClassViewSet, basename="class")
+router.register("sections", SectionViewSet, basename="section")
+router.register("departments", DepartmentViewSet, basename="department")
+router.register("support-tickets", SupportTicketViewSet, basename="support-ticket")
 router.register("settings", SchoolSettingsViewSet, basename="settings")
+router.register("bank-statements", BankStatementViewSet, basename="bank-statement")
+router.register("mandates", MandateViewSet, basename="mandate")
+router.register("audit-logs", AuditLogViewSet, basename="audit-log")
+router.register("consents", ConsentViewSet, basename="consent")
+router.register("data-requests", DataSubjectRequestViewSet, basename="data-request")
+router.register("team", TeamViewSet, basename="team")
 
 
 def health(_request):
@@ -72,6 +115,7 @@ urlpatterns = [
     path("auth/csrf/", CsrfView.as_view(), name="auth-csrf"),
     path("auth/tenant/", TenantInfoView.as_view(), name="auth-tenant"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/impersonate/", ImpersonateView.as_view(), name="auth-impersonate"),
     path("auth/auth0/", Auth0LoginView.as_view(), name="auth-auth0"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
@@ -92,9 +136,26 @@ urlpatterns = [
         name="auth-password-reset-confirm",
     ),
     path("finance/dashboard/", DashboardView.as_view(), name="finance-dashboard"),
+    path("finance/trial-balance/", TrialBalanceView.as_view(), name="finance-trial-balance"),
+    path("finance/profit-loss/", ProfitLossView.as_view(), name="finance-profit-loss"),
+    path("finance/balance-sheet/", BalanceSheetView.as_view(), name="finance-balance-sheet"),
+    path("finance/general-ledger/", GeneralLedgerView.as_view(), name="finance-general-ledger"),
+    path("finance/day-book/", DayBookView.as_view(), name="finance-day-book"),
+    path(
+        "finance/accounting/export/",
+        AccountingExportView.as_view(),
+        name="finance-accounting-export",
+    ),
     path("collections/stats/", CollectionStatsView.as_view(), name="collection-stats"),
     path("collections/dashboard/", CollectionDashboardView.as_view(), name="collection-dashboard"),
     path("collections/defaulters/", DefaultersView.as_view(), name="collection-defaulters"),
+    path("collections/risk/", CollectionRiskView.as_view(), name="collection-risk"),
+    path(
+        "collections/student-ledger/", StudentLedgerView.as_view(), name="collection-student-ledger"
+    ),
+    path("collections/parent-ledger/", ParentLedgerView.as_view(), name="collection-parent-ledger"),
+    path("collections/signing-key/", SigningKeyView.as_view(), name="collection-signing-key"),
+    path("collections/assistant/", CollectionAssistantView.as_view(), name="collection-assistant"),
     # Razorpay online payments (tenant-scoped; the webhook lives in urls_public).
     path(
         "payments/razorpay/config/",
@@ -105,5 +166,10 @@ urlpatterns = [
     path("payments/razorpay/verify/", RazorpayVerifyView.as_view(), name="razorpay-verify"),
     # Parent portal (OTP-authenticated, no staff session) — filled in by apps.portal.
     path("portal/", include("apps.portal.urls")),
+    path(
+        "privacy/students/<int:pk>/",
+        StudentPrivacyView.as_view(),
+        name="privacy-student",
+    ),
     *router.urls,
 ]

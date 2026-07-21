@@ -29,7 +29,7 @@ class FeeType(TimeStampedModel):
     name = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(FeeCategory, on_delete=models.PROTECT, related_name="fee_types")
     default_amount = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     is_recurring = models.BooleanField(default=True)
     # GST: HSN/SAC classification + rate. Amounts are treated as TAX-INCLUSIVE, so
     # the e-invoice extracts the tax component (education fees are often exempt →
@@ -56,7 +56,7 @@ class FeePlan(SoftDeleteModel):
     )
     grade = models.CharField(max_length=50, blank=True)  # blank = applies to all grades
     amount = money_field()
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     due_date = models.DateField(null=True, blank=True)
 
     class Meta:
@@ -103,7 +103,7 @@ class DiscountRule(SoftDeleteModel):
 
     # percentage: 0–100; fixed: currency amount. Interpreted per `method`.
     value = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=3, choices=Currency.choices, default="USD")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
 
     # Optional narrowing: apply only to lines of this fee type (else whole subtotal).
     fee_type = models.ForeignKey(

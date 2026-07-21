@@ -28,22 +28,35 @@ const BoxIcon = ({ className = ic }: IconProps) => (
 const ChartIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20v-9M16 20v-4" /></svg>
 );
+const ChatIcon = ({ className = ic }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+);
 const CogIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h5l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.06-.33.1-.66.1-1Z" /></svg>
 );
 
-const NAV = [
+type NavItem = { to: string; label: string; icon: (p: IconProps) => JSX.Element; end?: boolean; adminOnly?: boolean };
+
+const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: HomeIcon, end: true },
   { to: "/students", label: "Students", icon: UsersIcon },
   { to: "/fee-collection", label: "Fee Collection", icon: WalletIcon },
+  { to: "/fee-collections", label: "Collections", icon: CoinsIcon },
   { to: "/invoices", label: "Invoices", icon: DocIcon },
   { to: "/payouts", label: "Teacher Payouts", icon: CoinsIcon },
+  { to: "/teachers/new", label: "Add Teacher", icon: UsersIcon },
   { to: "/expenses/new", label: "Expenses", icon: DocIcon },
   { to: "/inventory", label: "Inventory", icon: BoxIcon },
   { to: "/finance", label: "Finance", icon: ChartIcon },
+  { to: "/accounting", label: "Accounting", icon: ChartIcon },
   { to: "/reports", label: "Reports", icon: DocIcon },
+  { to: "/risk", label: "Predictive", icon: ChartIcon },
+  { to: "/audit-log", label: "Audit Log", icon: DocIcon, adminOnly: true },
+  { to: "/support", label: "Support", icon: ChatIcon },
   { to: "/settings", label: "Settings", icon: CogIcon },
 ];
+
+const isVisible = (item: { adminOnly?: boolean }, role?: string) => !item.adminOnly || role === "admin";
 
 // Primary tabs shown in the mobile bottom bar (5th is the "More" sheet).
 const BOTTOM = [NAV[0], NAV[1], NAV[2], NAV[4]];
@@ -64,7 +77,7 @@ export function AppShell() {
           </div>
         </div>
         <nav className="mt-2 flex flex-1 flex-col gap-1 px-3">
-          {NAV.map((item) => (
+          {NAV.filter((item) => isVisible(item, user?.role)).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -145,7 +158,7 @@ export function AppShell() {
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200" />
             <div className="grid grid-cols-3 gap-3">
-              {NAV.filter((n) => !BOTTOM.includes(n)).map((item) => (
+              {NAV.filter((n) => !BOTTOM.includes(n) && isVisible(n, user?.role)).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

@@ -31,6 +31,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     serializer_class = AuditLogSerializer
+    rbac_resource = "audit-logs"
 
     def get_queryset(self):
         qs = AuditLog.objects.select_related("actor")
