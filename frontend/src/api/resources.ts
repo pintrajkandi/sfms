@@ -248,6 +248,63 @@ export const support = {
     api.post<SupportTicket>("/support-tickets/", body),
 };
 
+export interface TransportRoute {
+  id: number;
+  name: string;
+  code: string;
+  monthly_fare: string;
+  currency: string;
+  description: string;
+  is_active: boolean;
+  vehicle_count: number;
+  rider_count: number;
+}
+export interface Vehicle {
+  id: number;
+  registration_number: string;
+  model: string;
+  capacity: number;
+  driver_name: string;
+  driver_phone: string;
+  route: number | null;
+  route_name: string;
+  is_active: boolean;
+}
+export interface TransportExpense {
+  id: number;
+  vehicle: number | null;
+  vehicle_reg: string;
+  route: number | null;
+  route_name: string;
+  category: string;
+  amount: string;
+  currency: string;
+  spent_on: string;
+  vendor: string;
+  payment_method: string;
+  notes: string;
+}
+export interface RouteProfit {
+  routes: { route: string; code: string; riders: number; monthly_fare: string; expected_income: string; expense: string; profit: string }[];
+  total_income: string;
+  total_expense: string;
+  net: string;
+}
+
+export const transport = {
+  routes: () => list<TransportRoute>("/transport-routes/"),
+  createRoute: (body: { name: string; code: string; monthly_fare: string; description?: string }) =>
+    api.post<TransportRoute>("/transport-routes/", body),
+  removeRoute: (id: number) => api.delete<void>(`/transport-routes/${id}/`),
+  vehicles: () => list<Vehicle>("/vehicles/"),
+  createVehicle: (body: Partial<Vehicle>) => api.post<Vehicle>("/vehicles/", body),
+  removeVehicle: (id: number) => api.delete<void>(`/vehicles/${id}/`),
+  expenses: () => list<TransportExpense>("/transport-expenses/"),
+  createExpense: (body: Partial<TransportExpense>) =>
+    api.post<TransportExpense>("/transport-expenses/", body),
+  profitability: () => api.get<RouteProfit>("/transport/profitability/"),
+};
+
 export const payments = {
   list: (invoice: number) => list<Payment>(`/payments/?invoice=${invoice}`),
   recent: () => list<Payment>("/payments/"),

@@ -15,9 +15,9 @@ pytestmark = [pytest.mark.django_db]
 def test_seed_chart_of_accounts_is_idempotent(tenant_ctx):
     first = seed_chart_of_accounts()
     second = seed_chart_of_accounts()
-    assert first == 14
+    assert first == 15
     assert second == 0
-    assert Account.objects.filter(is_system=True).count() == 14
+    assert Account.objects.filter(is_system=True).count() == 15
 
 
 def test_post_journal_rejects_unbalanced(tenant_ctx):

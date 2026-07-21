@@ -69,6 +69,11 @@ POLICY: dict[str, dict] = {
     "accounts": {"read": ALL, "write": FINANCE, "delete": ADMIN_ONLY},
     "journal": {"read": ALL, "write": FINANCE, "delete": ADMIN_ONLY},
     "inventory": {"read": ALL, "write": {Role.ADMIN, Role.STAFF}, "delete": ADMIN_ONLY},
+    "transport": {
+        "read": ALL,
+        "write": {Role.ADMIN, Role.STAFF, Role.FINANCE},
+        "delete": ADMIN_ONLY,
+    },
     "students": {"read": ALL, "write": FRONT, "delete": ADMIN_ONLY},
     "settings": {"read": ALL, "write": ADMIN_ONLY, "delete": ADMIN_ONLY},
     "academic-years": {"read": ALL, "write": ADMIN_ONLY, "delete": ADMIN_ONLY},

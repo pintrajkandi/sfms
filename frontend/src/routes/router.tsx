@@ -23,6 +23,7 @@ import { AuditLogPage } from "@/features/audit/AuditLogPage";
 import { LandingPage } from "@/features/marketing/LandingPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { SupportPage } from "@/features/support/SupportPage";
+import { TransportPage } from "@/features/transport/TransportPage";
 import { AddInventoryPage } from "@/features/inventory/AddInventoryPage";
 import { InventoryListPage } from "@/features/inventory/InventoryListPage";
 import { OnboardingGate } from "@/features/onboarding/OnboardingGate";
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
                   { path: "inventory", element: <InventoryListPage /> },
                   { path: "inventory/new", element: <AddInventoryPage /> },
                   { path: "inventory/:id/edit", element: <AddInventoryPage /> },
+                  { path: "transport", element: <TransportPage /> },
                   { path: "finance", element: <FinanceDashboard /> },
                   { path: "accounting", element: <AccountingPage /> },
                   { path: "reports", element: <ReportsPage /> },

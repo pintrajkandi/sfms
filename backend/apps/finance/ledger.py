@@ -45,6 +45,7 @@ DEFAULT_ACCOUNTS = [
     ("5000", "Salaries & Wages", AccountType.EXPENSE),
     ("5100", "Operating Expenses", AccountType.EXPENSE),
     ("5200", "Refunds & Concessions", AccountType.EXPENSE),
+    ("5300", "Transport Expenses", AccountType.EXPENSE),
 ]
 
 
@@ -176,6 +177,26 @@ def post_expense(expense) -> None:
         lines=[
             {"account": "5100", "debit": amount, "credit": 0},
             {"account": _cash_account(method), "debit": 0, "credit": amount},
+        ],
+    )
+
+
+def post_transport_expense(expense) -> None:
+    amount = _q(expense.amount)
+    if amount <= ZERO:
+        return
+    post_journal(
+        date=getattr(expense, "spent_on", None) or date.today(),
+        narration=f"Transport: {expense.get_category_display()}",
+        source_type="transport_expense",
+        source_id=expense.id,
+        lines=[
+            {"account": "5300", "debit": amount, "credit": 0},
+            {
+                "account": _cash_account(getattr(expense, "payment_method", "")),
+                "debit": 0,
+                "credit": amount,
+            },
         ],
     )
 

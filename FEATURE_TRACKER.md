@@ -3,12 +3,11 @@
 Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 `Core Modules.pdf`. Updated as we build.
 
-> **Done (latest):** §3 Accounting — Chart of Accounts, double-entry Journals
-> (auto-posted), General Ledger, Trial Balance, P&L, Balance Sheet, **Day Book**,
-> **Cash/Bank Book** (GL presets). §14 — **Student Ledger** + **Parent Ledger**
-> reports. UI under **/accounting** and **/reports**.
-> **Next up:** Transport module (§7) or SaaS subscription billing (§18);
-> Collection-by-Class/Employee reports; push notifications (§15).
+> **Done (latest):** §7 Transport module — routes, vehicles, vehicle expenses
+> (auto-journaled), route profitability, route-wise transport fares + student
+> route assignment. UI under **/transport**.
+> **Next up:** SaaS subscription billing (§18); Collection-by-Class/Employee
+> reports (§14); push notifications (§15); Hostel module.
 
 ---
 
@@ -23,7 +22,7 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 ### Fee Structure
 - [x] Class-wise fees
 - [~] Student-wise custom fees (custom invoices + discounts; no per-student plan)
-- [ ] Route-wise transport fees
+- [x] Route-wise transport fees (route fare + student route assignment)
 - [ ] Hostel fees
 - [~] Late fee rules (per-invoice late fee; no rules engine)
 - [x] Discounts
@@ -69,8 +68,9 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [~] Inventory accounting (not journaled)
 
 ## 7. Transport Accounting
-- [ ] Vehicle expenses (fuel / driver salary / maintenance / insurance)
-- [ ] Route profitability
+- [x] Routes + vehicles (drivers, capacity, route assignment)
+- [x] Vehicle expenses (fuel / driver salary / maintenance / insurance) — auto-journaled
+- [x] Route profitability (riders × fare − expenses)
 
 ## 9. Online Payments
 - [x] Razorpay + automatic reconciliation
@@ -88,9 +88,10 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [x] Trial Balance, Balance Sheet, P&L, General Ledger (under /accounting)
 - [x] Student Ledger, Parent Ledger (under /reports)
 - [x] Cash Book, Bank Book, Day Book (under /accounting)
+- [x] Transport Report (route profitability under /transport)
 - [~] Fee Register, Daily Collection, TDS
 - [ ] Collection by Employee / Branch / Class
-- [ ] Transport Report / Hostel Report
+- [ ] Hostel Report
 
 ## 15. Notification Engine
 - [x] WhatsApp / SMS reminders

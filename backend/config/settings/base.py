@@ -55,6 +55,7 @@ TENANT_APPS = [
     "apps.expenses",
     "apps.inventory",
     "apps.finance",
+    "apps.transport",
     "apps.notifications",
     "apps.portal",
     "apps.privacy",

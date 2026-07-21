@@ -28,6 +28,9 @@ const BoxIcon = ({ className = ic }: IconProps) => (
 const ChartIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20v-9M16 20v-4" /></svg>
 );
+const BusIcon = ({ className = ic }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="12" rx="2" /><path d="M3 11h18M7 17v2M17 17v2" /><circle cx="7.5" cy="14.5" r="0.5" /><circle cx="16.5" cy="14.5" r="0.5" /></svg>
+);
 const ChatIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
 );
@@ -47,6 +50,7 @@ const NAV: NavItem[] = [
   { to: "/teachers/new", label: "Add Teacher", icon: UsersIcon },
   { to: "/expenses/new", label: "Expenses", icon: DocIcon },
   { to: "/inventory", label: "Inventory", icon: BoxIcon },
+  { to: "/transport", label: "Transport", icon: BusIcon },
   { to: "/finance", label: "Finance", icon: ChartIcon },
   { to: "/accounting", label: "Accounting", icon: ChartIcon },
   { to: "/reports", label: "Reports", icon: DocIcon },

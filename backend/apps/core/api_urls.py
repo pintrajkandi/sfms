@@ -73,6 +73,12 @@ from apps.schools.views import (
 )
 from apps.staff.views import PayoutViewSet, TeacherViewSet
 from apps.students.views import StudentViewSet
+from apps.transport.views import (
+    RouteProfitabilityView,
+    TransportExpenseViewSet,
+    TransportRouteViewSet,
+    VehicleViewSet,
+)
 
 router = DefaultRouter()
 router.register("students", StudentViewSet, basename="student")
@@ -95,6 +101,9 @@ router.register("classes", SchoolClassViewSet, basename="class")
 router.register("sections", SectionViewSet, basename="section")
 router.register("departments", DepartmentViewSet, basename="department")
 router.register("support-tickets", SupportTicketViewSet, basename="support-ticket")
+router.register("transport-routes", TransportRouteViewSet, basename="transport-route")
+router.register("vehicles", VehicleViewSet, basename="vehicle")
+router.register("transport-expenses", TransportExpenseViewSet, basename="transport-expense")
 router.register("settings", SchoolSettingsViewSet, basename="settings")
 router.register("bank-statements", BankStatementViewSet, basename="bank-statement")
 router.register("mandates", MandateViewSet, basename="mandate")
@@ -141,6 +150,9 @@ urlpatterns = [
     path("finance/balance-sheet/", BalanceSheetView.as_view(), name="finance-balance-sheet"),
     path("finance/general-ledger/", GeneralLedgerView.as_view(), name="finance-general-ledger"),
     path("finance/day-book/", DayBookView.as_view(), name="finance-day-book"),
+    path(
+        "transport/profitability/", RouteProfitabilityView.as_view(), name="transport-profitability"
+    ),
     path(
         "finance/accounting/export/",
         AccountingExportView.as_view(),

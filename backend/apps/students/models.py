@@ -53,6 +53,16 @@ class Student(SoftDeleteModel):
     )
     previous_school = models.CharField(max_length=200, blank=True)
     notes = models.TextField(blank=True)
+
+    # Transport (optional) — links a rider to a route for fees + profitability.
+    transport_route = models.ForeignKey(
+        "transport.TransportRoute",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="students",
+    )
+    transport_pickup = models.CharField(max_length=120, blank=True)
     academic_year = models.ForeignKey(
         "schools.AcademicYear",
         on_delete=models.PROTECT,
