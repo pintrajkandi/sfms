@@ -160,6 +160,17 @@ class TenantInfoView(APIView):
         )
 
 
+class SubscriptionView(APIView):
+    """The signed-in school's subscription (free plan for now)."""
+
+    def get(self, request):
+        from apps.students.models import Student
+        from apps.tenants.services import subscription_status
+
+        count = Student.objects.alive().count()
+        return Response(subscription_status(request.tenant, student_count=count))
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 

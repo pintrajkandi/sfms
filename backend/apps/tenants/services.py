@@ -53,6 +53,60 @@ def _unique_slug(base: str) -> str:
     return candidate
 
 
+def ensure_free_plan():
+    """The default plan every new school is placed on. Free + unlimited for now.
+
+    Paid plans can be added later (via admin); whichever plan has is_default=True
+    is the one new tenants receive.
+    """
+    from apps.tenants.models import Plan
+
+    plan, _ = Plan.objects.get_or_create(
+        code="free",
+        defaults={
+            "name": "Free",
+            "description": "All features included. Paid plans coming soon.",
+            "price_monthly": 0,
+            "max_students": 0,  # unlimited
+            "is_default": True,
+            "is_active": True,
+        },
+    )
+    return plan
+
+
+def default_plan():
+    """The plan new tenants get: the flagged default, else the free plan."""
+    from apps.tenants.models import Plan
+
+    return Plan.objects.filter(is_default=True, is_active=True).first() or ensure_free_plan()
+
+
+def subscription_status(tenant, *, student_count: int = 0) -> dict:
+    """Current subscription for a tenant. Everyone is on the free plan for now."""
+    plan = getattr(tenant, "plan", None) or default_plan()
+    max_students = plan.max_students or 0
+    return {
+        "plan": {
+            "name": plan.name,
+            "code": plan.code,
+            "description": plan.description,
+            "price_monthly": str(plan.price_monthly),
+            "currency": plan.currency,
+            "interval": plan.interval,
+            "is_free": plan.is_free,
+            "features": plan.features or {},
+        },
+        "status": "active",
+        "is_free": plan.is_free,
+        "on_trial": getattr(tenant, "on_trial", False),
+        "renews_at": tenant.paid_until.isoformat() if getattr(tenant, "paid_until", None) else None,
+        "student_count": student_count,
+        "max_students": max_students,  # 0 = unlimited
+        "student_limit_reached": bool(max_students) and student_count >= max_students,
+    }
+
+
 def _generate_code(name: str) -> str:
     from apps.tenants.models import Client
 
@@ -83,7 +137,15 @@ def provision_school(
     final_schema = schema_name or final_slug.replace("-", "_")
     code = _generate_code(name)
 
-    client = Client(schema_name=final_schema, name=name, slug=final_slug, code=code)
+    plan = default_plan()
+    client = Client(
+        schema_name=final_schema,
+        name=name,
+        slug=final_slug,
+        code=code,
+        plan=plan,
+        on_trial=False,  # free plan — not a time-limited trial
+    )
     client.save()  # auto-creates + migrates the schema
 
     domain = f"{final_slug}.{TENANT_BASE_DOMAIN}"

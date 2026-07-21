@@ -3,11 +3,12 @@
 Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 `Core Modules.pdf`. Updated as we build.
 
-> **Done (latest):** §7 Transport module — routes, vehicles, vehicle expenses
-> (auto-journaled), route profitability, route-wise transport fares + student
-> route assignment. UI under **/transport**.
-> **Next up:** SaaS subscription billing (§18); Collection-by-Class/Employee
-> reports (§14); push notifications (§15); Hostel module.
+> **Done (latest):** §18 SaaS subscription scaffolding — Plans (code, interval,
+> trial, limits, default flag), a seeded **Free** plan auto-assigned to every
+> school, `/subscription/` endpoint + **Settings → Subscription** tab (usage +
+> "paid plans coming soon"). Free for all tenants now; paid plans added later.
+> **Next up:** Collection-by-Class/Employee reports (§14); usage-based billing +
+> online subscription payments (§18, when paid plans launch); push (§15); Hostel.
 
 ---
 
@@ -112,10 +113,11 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [x] Multiple schools, schema-per-tenant isolation, custom domains, white-label branding, logo/theme
 ### Subscription & Billing
 - [x] Trial period
-- [~] Monthly/yearly plans
-- [ ] Online subscription payments
-- [ ] Usage-based billing
-- [ ] SaaS invoice generation
+- [x] Plans (monthly/yearly, limits, features, default) + Free plan auto-assigned
+- [x] Subscription view (current plan + usage) — Settings → Subscription
+- [ ] Online subscription payments (deferred until paid plans launch)
+- [ ] Usage-based billing (deferred)
+- [ ] SaaS invoice generation (deferred)
 ### Tenant Management
 - [x] Enable/disable schools
 - [~] User limits (max_students); feature flags (JSON, enforcement partial)

@@ -8,6 +8,7 @@ import { AcademicYearTab } from "./AcademicYearTab";
 import { ClassesPage } from "./ClassesPage";
 import { DepartmentsTab } from "./DepartmentsTab";
 import { FeeSetupPage } from "./FeeSetupPage";
+import { SubscriptionTab } from "./SubscriptionTab";
 
 const TABS = [
   "School Info",
@@ -20,6 +21,7 @@ const TABS = [
   "Contact Details",
   "Academic Year",
   "Notifications",
+  "Subscription",
   "Security",
 ] as const;
 type Tab = (typeof TABS)[number];
@@ -159,6 +161,7 @@ export function SettingsPage() {
           {tab === "Payroll" && <Payroll form={form} set={set} />}
           {tab === "Contact Details" && <Contact form={form} set={set} />}
           {tab === "Academic Year" && <AcademicYearTab />}
+          {tab === "Subscription" && <SubscriptionTab />}
           {tab === "Notifications" && <Notifications form={form} set={set} />}
           {tab === "Security" && <Security />}
         </Card>

@@ -125,6 +125,21 @@ export const finance = {
   dashboard: () => api.get<FinanceDashboard>("/finance/dashboard/"),
 };
 
+export interface Subscription {
+  plan: { name: string; code: string | null; description: string; price_monthly: string; currency: string; interval: string; is_free: boolean; features: Record<string, unknown> };
+  status: string;
+  is_free: boolean;
+  on_trial: boolean;
+  renews_at: string | null;
+  student_count: number;
+  max_students: number;
+  student_limit_reached: boolean;
+}
+
+export const subscription = {
+  get: () => api.get<Subscription>("/subscription/"),
+};
+
 export interface Account {
   id: number;
   code: string;

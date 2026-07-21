@@ -34,6 +34,9 @@ class Command(BaseCommand):
         Domain.objects.get_or_create(
             domain=opts["domain"], tenant=client, defaults={"is_primary": True}
         )
+        from apps.tenants.services import ensure_free_plan
+
+        ensure_free_plan()
         log.info(
             "public tenant ready domain=%s",
             opts["domain"],

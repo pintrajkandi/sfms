@@ -14,6 +14,7 @@ from apps.accounts.api import (
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ResendVerificationView,
+    SubscriptionView,
     TeamViewSet,
     TenantInfoView,
     VerifyEmailView,
@@ -128,6 +129,7 @@ urlpatterns = [
     path("auth/auth0/", Auth0LoginView.as_view(), name="auth-auth0"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("auth/verify-email/", VerifyEmailView.as_view(), name="auth-verify-email"),
     path(
         "auth/resend-verification/",

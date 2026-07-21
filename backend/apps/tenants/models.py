@@ -13,18 +13,32 @@ from django_tenants.models import DomainMixin, TenantMixin
 class Plan(models.Model):
     """A subscription plan (public schema). Defines price + per-tenant limits."""
 
+    class Interval(models.TextChoices):
+        MONTHLY = "monthly", "Monthly"
+        YEARLY = "yearly", "Yearly"
+
     name = models.CharField(max_length=60, unique=True)
+    code = models.SlugField(max_length=40, unique=True, null=True, blank=True)
+    description = models.CharField(max_length=255, blank=True)
     price_monthly = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     currency = models.CharField(max_length=3, default="INR")
+    interval = models.CharField(max_length=10, choices=Interval.choices, default=Interval.MONTHLY)
+    trial_days = models.PositiveIntegerField(default=0)
     max_students = models.PositiveIntegerField(default=0)  # 0 = unlimited
     features = models.JSONField(default=dict, blank=True)  # feature flags / module toggles
     is_active = models.BooleanField(default=True)
+    # The plan new schools are placed on automatically (currently the Free plan).
+    is_default = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("price_monthly",)
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def is_free(self) -> bool:
+        return self.price_monthly == 0
 
 
 class Client(TenantMixin):
