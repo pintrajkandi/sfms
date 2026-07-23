@@ -89,7 +89,18 @@ class BackupRun(models.Model):
         FAILED = "failed", "Failed"
 
     label = models.CharField(max_length=120)
-    path = models.CharField(max_length=500, blank=True)
+    # Per-school backups link to the school + its schema; whole-cluster backups
+    # (the legacy nightly drill) leave these blank.
+    client = models.ForeignKey(
+        "tenants.Client",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="backups",
+    )
+    schema_name = models.CharField(max_length=63, blank=True)
+    path = models.CharField(max_length=500, blank=True)  # local file path (transient)
+    storage_key = models.CharField(max_length=500, blank=True)  # object-storage key (durable)
     sha256 = models.CharField(max_length=64, blank=True)
     size_bytes = models.BigIntegerField(default=0)
     table_count_total = models.BigIntegerField(default=0)  # summed rows across tables

@@ -25,6 +25,9 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         item = serializer.save()
         update_search_vector(item, _SEARCH_FIELDS)
+        from apps.finance.ledger import _safe, post_inventory_purchase
+
+        _safe(post_inventory_purchase, item)
 
     def perform_update(self, serializer):
         item = serializer.save()

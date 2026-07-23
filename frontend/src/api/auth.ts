@@ -8,6 +8,7 @@ export interface User {
   last_name: string;
   full_name: string;
   role: string;
+  is_superuser?: boolean;
 }
 
 export interface SchoolRef {

@@ -264,7 +264,35 @@ def record_payment(
     from apps.finance.ledger import _safe, post_payment
 
     _safe(post_payment, payment)
+    _email_receipt(payment)
     return payment
+
+
+def _email_receipt(payment) -> None:
+    """Best-effort: email the payer a receipt. Never breaks the payment write."""
+    try:
+        student = payment.invoice.student
+        to_email = student.guardian_email or student.email
+        if not to_email:
+            return
+        from .receipts import receipt_number
+
+        number = receipt_number(payment)
+        body = (
+            f"Dear {student.guardian_name or student.full_name},\n\n"
+            f"We have received your fee payment.\n\n"
+            f"Receipt No: {number}\n"
+            f"Student: {student.full_name} ({student.student_id})\n"
+            f"Amount: {payment.amount} {payment.currency}\n"
+            f"Method: {payment.method}\n"
+            f"Invoice: {payment.invoice.invoice_number}\n\n"
+            f"Thank you."
+        )
+        from apps.notifications.tasks import send_email
+
+        send_email.delay(to_email, f"Fee Receipt {number}", body)
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("receipt email skipped payment=%s error=%s", payment.id, exc)
 
 
 @transaction.atomic

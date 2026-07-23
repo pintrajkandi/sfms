@@ -93,6 +93,13 @@ export function FeeCollectionDashboard() {
         <Kpi label="Today's Collection" value={formatMoney(st?.todays_collection ?? "0")} hint={`${st?.todays_receipts ?? 0} receipts`} tone="brand" />
       </div>
 
+      {/* Accountant breakouts */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Kpi label="Cash in Hand" value={formatMoney(st?.cash_in_hand ?? "0")} hint="net cash collected" tone="emerald" />
+        <Kpi label="Bank Deposits" value={formatMoney(st?.bank_deposits ?? "0")} hint="UPI / bank / cheque / card" tone="brand" />
+        <Kpi label="Yesterday's Collection" value={formatMoney(st?.yesterday_collection ?? "0")} hint="previous day" tone="brand" />
+      </div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Collect Fee panel */}
         <Card className="space-y-4">

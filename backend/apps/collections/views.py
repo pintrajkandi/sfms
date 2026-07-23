@@ -27,6 +27,7 @@ from .models import (
     PaymentPlan,
 )
 from .selectors import (
+    collection_breakdown,
     collection_dashboard,
     collection_risk_report,
     collection_stats,
@@ -109,6 +110,26 @@ class CollectionRiskView(APIView):
     def get(self, request):
         limit = int(request.query_params.get("limit", 100))
         return Response(collection_risk_report(limit=limit))
+
+
+class CollectionBreakdownView(APIView):
+    """Collections grouped by class, by employee and by method."""
+
+    def get(self, request):
+        from datetime import date
+
+        def _parse(v):
+            try:
+                return date.fromisoformat(v) if v else None
+            except ValueError:
+                return None
+
+        return Response(
+            collection_breakdown(
+                since=_parse(request.query_params.get("since")),
+                until=_parse(request.query_params.get("until")),
+            )
+        )
 
 
 class StudentLedgerView(APIView):
@@ -321,6 +342,13 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 | Q(reference__icontains=term)
             )
         return qs
+
+    @action(detail=True, methods=["get"])
+    def receipt(self, request, pk=None):
+        """Branded receipt data (with QR + barcode) for printing/sharing."""
+        from .receipts import receipt_data
+
+        return Response(receipt_data(self.get_object()))
 
     @action(detail=False, methods=["get"])
     def export(self, request):

@@ -28,6 +28,9 @@ const BoxIcon = ({ className = ic }: IconProps) => (
 const ChartIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V4M4 20h16M8 20v-6M12 20v-9M16 20v-4" /></svg>
 );
+const BedIcon = ({ className = ic }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v11M3 12h18v6M21 12v-1a3 3 0 0 0-3-3H8" /><circle cx="6.5" cy="10.5" r="1.5" /></svg>
+);
 const BusIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="12" rx="2" /><path d="M3 11h18M7 17v2M17 17v2" /><circle cx="7.5" cy="14.5" r="0.5" /><circle cx="16.5" cy="14.5" r="0.5" /></svg>
 );
@@ -38,11 +41,12 @@ const CogIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h5l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.06-.33.1-.66.1-1Z" /></svg>
 );
 
-type NavItem = { to: string; label: string; icon: (p: IconProps) => JSX.Element; end?: boolean; adminOnly?: boolean };
+type NavItem = { to: string; label: string; icon: (p: IconProps) => JSX.Element; end?: boolean; adminOnly?: boolean; superuserOnly?: boolean };
 
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: HomeIcon, end: true },
   { to: "/students", label: "Students", icon: UsersIcon },
+  { to: "/parents", label: "Parents", icon: UsersIcon },
   { to: "/fee-collection", label: "Fee Collection", icon: WalletIcon },
   { to: "/fee-collections", label: "Collections", icon: CoinsIcon },
   { to: "/invoices", label: "Invoices", icon: DocIcon },
@@ -51,19 +55,27 @@ const NAV: NavItem[] = [
   { to: "/expenses/new", label: "Expenses", icon: DocIcon },
   { to: "/inventory", label: "Inventory", icon: BoxIcon },
   { to: "/transport", label: "Transport", icon: BusIcon },
+  { to: "/hostel", label: "Hostel", icon: BedIcon },
   { to: "/finance", label: "Finance", icon: ChartIcon },
   { to: "/accounting", label: "Accounting", icon: ChartIcon },
+  { to: "/documents", label: "Documents", icon: DocIcon },
   { to: "/reports", label: "Reports", icon: DocIcon },
   { to: "/risk", label: "Predictive", icon: ChartIcon },
   { to: "/audit-log", label: "Audit Log", icon: DocIcon, adminOnly: true },
   { to: "/support", label: "Support", icon: ChatIcon },
+  { to: "/platform", label: "Platform", icon: ChartIcon, superuserOnly: true },
   { to: "/settings", label: "Settings", icon: CogIcon },
 ];
 
-const isVisible = (item: { adminOnly?: boolean }, role?: string) => !item.adminOnly || role === "admin";
+const isVisible = (item: NavItem, role?: string, isSuperuser?: boolean) => {
+  if (item.superuserOnly) return Boolean(isSuperuser);
+  return !item.adminOnly || role === "admin";
+};
 
 // Primary tabs shown in the mobile bottom bar (5th is the "More" sheet).
-const BOTTOM = [NAV[0], NAV[1], NAV[2], NAV[4]];
+const BOTTOM = ["/", "/students", "/fee-collection", "/payouts"].map(
+  (to) => NAV.find((n) => n.to === to)!,
+);
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -81,7 +93,7 @@ export function AppShell() {
           </div>
         </div>
         <nav className="mt-2 flex flex-1 flex-col gap-1 px-3">
-          {NAV.filter((item) => isVisible(item, user?.role)).map((item) => (
+          {NAV.filter((item) => isVisible(item, user?.role, user?.is_superuser)).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -162,7 +174,7 @@ export function AppShell() {
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200" />
             <div className="grid grid-cols-3 gap-3">
-              {NAV.filter((n) => !BOTTOM.includes(n) && isVisible(n, user?.role)).map((item) => (
+              {NAV.filter((n) => !BOTTOM.includes(n) && isVisible(n, user?.role, user?.is_superuser)).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

@@ -109,6 +109,13 @@ export const invoices = {
   }) => api.post<Invoice>("/invoices/", body),
 };
 
+export interface CollectionBreakdown {
+  total: string;
+  by_class: { key: string; count: number; total: string }[];
+  by_employee: { key: string; count: number; total: string }[];
+  by_method: { key: string; count: number; total: string }[];
+}
+
 export const collections = {
   stats: () => api.get<CollectionStats>("/collections/stats/"),
   dashboard: () => api.get<CollectionDashboard>("/collections/dashboard/"),
@@ -116,6 +123,7 @@ export const collections = {
   defaultersExportUrl: (fmt: string) => api.fileUrl(`/collections/defaulters/?fmt=${fmt}`),
   paymentsExportUrl: (fmt: string) => api.fileUrl(`/payments/export/?fmt=${fmt}`),
   risk: () => api.get<RiskReport>("/collections/risk/"),
+  breakdown: () => api.get<CollectionBreakdown>("/collections/breakdown/"),
   ask: (question: string) => api.post<AssistantAnswer>("/collections/assistant/", { question }),
   signingKey: () =>
     api.get<{ algorithm: string; public_pem: string; key_id: number }>("/collections/signing-key/"),
@@ -123,6 +131,49 @@ export const collections = {
 
 export const finance = {
   dashboard: () => api.get<FinanceDashboard>("/finance/dashboard/"),
+};
+
+export interface Parent {
+  id: number;
+  name: string;
+  relation: string;
+  phone: string;
+  email: string;
+  occupation: string;
+  address: string;
+  is_active: boolean;
+  children: { id: number; name: string; student_id: string; grade: string }[];
+}
+
+export const parents = {
+  list: (term = "") => list<Parent>(`/parents/${term ? `?search=${encodeURIComponent(term)}` : ""}`),
+  create: (body: Partial<Parent>) => api.post<Parent>("/parents/", body),
+  update: (id: number, body: Partial<Parent>) => api.patch<Parent>(`/parents/${id}/`, body),
+  remove: (id: number) => api.delete<void>(`/parents/${id}/`),
+};
+
+export interface PlatformMetrics {
+  active_schools: number;
+  trial_schools: number;
+  paid_schools: number;
+  archived_schools: number;
+  total_schools: number;
+  mrr: string;
+  arr: string;
+  renewals_due_30d: number;
+  plan_mix: { plan: string; count: number }[];
+  growth: { month: string; new_schools: number }[];
+}
+
+export const platform = {
+  metrics: () => api.get<PlatformMetrics>("/platform/metrics/"),
+};
+
+export const push = {
+  vapidKey: () => api.get<{ public_key: string; enabled: boolean }>("/push/vapid-key/"),
+  subscribe: (subscription: unknown) => api.post("/push/subscribe/", { subscription }),
+  unsubscribe: (endpoint: string) => api.post("/push/unsubscribe/", { endpoint }),
+  test: () => api.post("/push/test/", {}),
 };
 
 export interface Subscription {
@@ -247,6 +298,24 @@ export const auditLogs = {
   list: (params = "") => list<AuditLog>(`/audit-logs/${params}`),
 };
 
+export interface DocumentFile {
+  id: number;
+  title: string;
+  category: string;
+  file: string;
+  student: number | null;
+  student_name: string;
+  notes: string;
+  uploaded_by_name: string;
+  created_at: string;
+}
+
+export const documents = {
+  list: (params = "") => list<DocumentFile>(`/documents/${params}`),
+  upload: (form: FormData) => api.postForm<DocumentFile>("/documents/", form),
+  remove: (id: number) => api.delete<void>(`/documents/${id}/`),
+};
+
 export interface SupportTicket {
   id: number;
   subject: string;
@@ -306,6 +375,62 @@ export interface RouteProfit {
   net: string;
 }
 
+export interface Hostel {
+  id: number;
+  name: string;
+  code: string;
+  monthly_fee: string;
+  currency: string;
+  capacity: number;
+  warden_name: string;
+  warden_phone: string;
+  description: string;
+  is_active: boolean;
+  room_count: number;
+  resident_count: number;
+}
+export interface HostelRoom {
+  id: number;
+  hostel: number;
+  hostel_code: string;
+  room_number: string;
+  floor: string;
+  capacity: number;
+  is_active: boolean;
+}
+export interface HostelExpense {
+  id: number;
+  hostel: number | null;
+  hostel_name: string;
+  category: string;
+  amount: string;
+  currency: string;
+  spent_on: string;
+  vendor: string;
+  payment_method: string;
+  notes: string;
+}
+export interface HostelReport {
+  hostels: { hostel: string; code: string; residents: number; capacity: number; occupancy_percent: number; monthly_fee: string; expected_income: string; expense: string; profit: string }[];
+  total_income: string;
+  total_expense: string;
+  net: string;
+  total_residents: number;
+  total_capacity: number;
+}
+
+export const hostel = {
+  hostels: () => list<Hostel>("/hostels/"),
+  createHostel: (body: Partial<Hostel>) => api.post<Hostel>("/hostels/", body),
+  removeHostel: (id: number) => api.delete<void>(`/hostels/${id}/`),
+  rooms: (hostelId?: number) => list<HostelRoom>(`/hostel-rooms/${hostelId ? `?hostel=${hostelId}` : ""}`),
+  createRoom: (body: Partial<HostelRoom>) => api.post<HostelRoom>("/hostel-rooms/", body),
+  removeRoom: (id: number) => api.delete<void>(`/hostel-rooms/${id}/`),
+  expenses: () => list<HostelExpense>("/hostel-expenses/"),
+  createExpense: (body: Partial<HostelExpense>) => api.post<HostelExpense>("/hostel-expenses/", body),
+  report: () => api.get<HostelReport>("/hostel/report/"),
+};
+
 export const transport = {
   routes: () => list<TransportRoute>("/transport-routes/"),
   createRoute: (body: { name: string; code: string; monthly_fare: string; description?: string }) =>
@@ -320,9 +445,25 @@ export const transport = {
   profitability: () => api.get<RouteProfit>("/transport/profitability/"),
 };
 
+export interface Receipt {
+  receipt_number: string;
+  date: string;
+  amount: string;
+  currency: string;
+  method: string;
+  reference: string;
+  verified: boolean;
+  school: { name: string; logo: string; address: string; phone: string; email: string; footer: string };
+  student: { name: string; student_id: string; grade: string; section: string; guardian: string };
+  invoice: { number: string; total: string; amount_paid: string; balance: string };
+  qr: string;
+  barcode: string;
+}
+
 export const payments = {
   list: (invoice: number) => list<Payment>(`/payments/?invoice=${invoice}`),
   recent: () => list<Payment>("/payments/"),
+  receipt: (id: number | string) => api.get<Receipt>(`/payments/${id}/receipt/`),
   search: (term: string) =>
     list<Payment>(`/payments/${term ? `?search=${encodeURIComponent(term)}` : ""}`),
   create: (body: {

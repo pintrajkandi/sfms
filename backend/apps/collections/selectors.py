@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import F, Sum
+from django.db.models import Count, F, Sum
 from django.db.models.functions import TruncMonth
 
 from apps.core.models import ZERO
@@ -94,20 +94,93 @@ def student_fee_summary(student) -> dict:
     }
 
 
+def collection_breakdown(*, since=None, until=None) -> dict:
+    """Collections grouped by class, by employee (who recorded it) and by method."""
+    qs = Payment.objects.select_related("invoice__student", "recorded_by")
+    if since:
+        qs = qs.filter(paid_at__date__gte=since)
+    if until:
+        qs = qs.filter(paid_at__date__lte=until)
+
+    total = qs.aggregate(s=Sum("amount"))["s"] or ZERO
+
+    by_class = [
+        {
+            "key": row["invoice__student__grade"] or "Unassigned",
+            "count": row["n"],
+            "total": _q_s(row["s"] or ZERO),
+        }
+        for row in qs.values("invoice__student__grade")
+        .annotate(n=Count("id"), s=Sum("amount"))
+        .order_by("-s")
+    ]
+
+    by_employee = []
+    for row in (
+        qs.values(
+            "recorded_by_id",
+            "recorded_by__first_name",
+            "recorded_by__last_name",
+            "recorded_by__email",
+        )
+        .annotate(n=Count("id"), s=Sum("amount"))
+        .order_by("-s")
+    ):
+        name = (
+            f"{row['recorded_by__first_name'] or ''} {row['recorded_by__last_name'] or ''}".strip()
+        )
+        by_employee.append(
+            {
+                "key": name or row["recorded_by__email"] or "System",
+                "count": row["n"],
+                "total": _q_s(row["s"] or ZERO),
+            }
+        )
+
+    by_method = [
+        {"key": row["method"], "count": row["n"], "total": _q_s(row["s"] or ZERO)}
+        for row in qs.values("method").annotate(n=Count("id"), s=Sum("amount")).order_by("-s")
+    ]
+
+    return {
+        "total": _q_s(total),
+        "by_class": by_class,
+        "by_employee": by_employee,
+        "by_method": by_method,
+    }
+
+
 def collection_stats() -> dict:
-    """KPI tiles for the fee-collection dashboard."""
+    """KPI tiles for the fee-collection / accountant dashboard."""
+    from datetime import timedelta
+
     from apps.students.models import Student
+
+    from .models import Refund
 
     live = Invoice.objects.exclude(status=InvoiceStatus.CANCELLED)
     collected = live.aggregate(s=Sum("amount_paid"))["s"] or ZERO
     billed = live.aggregate(s=Sum("total"))["s"] or ZERO
     pending = billed - collected
-    todays = (
-        Payment.objects.filter(paid_at__date=date.today()).aggregate(s=Sum("amount"))["s"] or ZERO
-    )
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    todays = Payment.objects.filter(paid_at__date=today).aggregate(s=Sum("amount"))["s"] or ZERO
+    yest = Payment.objects.filter(paid_at__date=yesterday).aggregate(s=Sum("amount"))["s"] or ZERO
     total_students = Student.objects.alive().count()
     paid_students = live.filter(status=InvoiceStatus.PAID).values("student").distinct().count()
     rate = float(collected / billed * 100) if billed > ZERO else 0.0
+
+    # Cash in hand = net cash collected; Bank deposits = net non-cash collected.
+    processed = {"status": Refund.Status.PROCESSED}
+    cash_in = Payment.objects.filter(method="cash").aggregate(s=Sum("amount"))["s"] or ZERO
+    cash_out = (
+        Refund.objects.filter(method="cash", **processed).aggregate(s=Sum("amount"))["s"] or ZERO
+    )
+    bank_in = Payment.objects.exclude(method="cash").aggregate(s=Sum("amount"))["s"] or ZERO
+    bank_out = (
+        Refund.objects.exclude(method="cash").filter(**processed).aggregate(s=Sum("amount"))["s"]
+        or ZERO
+    )
     return {
         "total_collected": str(_q(collected)),
         "pending_dues": str(_q(pending)),
@@ -115,7 +188,10 @@ def collection_stats() -> dict:
         "total_students": total_students,
         "collection_rate_percent": round(rate, 1),
         "todays_collection": str(_q(todays)),
-        "todays_receipts": Payment.objects.filter(paid_at__date=date.today()).count(),
+        "todays_receipts": Payment.objects.filter(paid_at__date=today).count(),
+        "yesterday_collection": str(_q(yest)),
+        "cash_in_hand": str(_q(cash_in - cash_out)),
+        "bank_deposits": str(_q(bank_in - bank_out)),
     }
 
 

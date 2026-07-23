@@ -14,6 +14,7 @@ import { FeeCollectionDashboard } from "@/features/collections/FeeCollectionDash
 import { FeeCollectionsListPage } from "@/features/collections/FeeCollectionsListPage";
 import { FeeCollectionWizard } from "@/features/collections/FeeCollectionWizard";
 import { InvoiceDetailPage } from "@/features/collections/InvoiceDetailPage";
+import { ReceiptPage } from "@/features/collections/ReceiptPage";
 import { InvoicesListPage } from "@/features/collections/InvoicesListPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { SubmitExpensePage } from "@/features/expenses/SubmitExpensePage";
@@ -24,6 +25,8 @@ import { LandingPage } from "@/features/marketing/LandingPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { SupportPage } from "@/features/support/SupportPage";
 import { TransportPage } from "@/features/transport/TransportPage";
+import { HostelPage } from "@/features/hostel/HostelPage";
+import { DocumentsPage } from "@/features/documents/DocumentsPage";
 import { AddInventoryPage } from "@/features/inventory/AddInventoryPage";
 import { InventoryListPage } from "@/features/inventory/InventoryListPage";
 import { OnboardingGate } from "@/features/onboarding/OnboardingGate";
@@ -34,6 +37,8 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AddTeacherPage } from "@/features/staff/AddTeacherPage";
 import { TeacherPayoutPage } from "@/features/staff/TeacherPayoutPage";
 import { AddStudentPage } from "@/features/students/AddStudentPage";
+import { ParentsPage } from "@/features/students/ParentsPage";
+import { PlatformDashboard } from "@/features/platform/PlatformDashboard";
 import { StudentDetailPage } from "@/features/students/StudentDetailPage";
 import { StudentsPage } from "@/features/students/StudentsPage";
 
@@ -67,11 +72,14 @@ export const router = createBrowserRouter([
                   { path: "students/new", element: <AddStudentPage /> },
                   { path: "students/:id/edit", element: <AddStudentPage /> },
                   { path: "students/:id", element: <StudentDetailPage /> },
+                  { path: "parents", element: <ParentsPage /> },
+                  { path: "platform", element: <PlatformDashboard /> },
                   { path: "fee-collection", element: <FeeCollectionDashboard /> },
                   { path: "fee-collection/new", element: <FeeCollectionWizard /> },
                   { path: "fee-collections", element: <FeeCollectionsListPage /> },
                   { path: "invoices", element: <InvoicesListPage /> },
                   { path: "invoices/:id", element: <InvoiceDetailPage /> },
+                  { path: "receipts/:id", element: <ReceiptPage /> },
                   { path: "payouts", element: <TeacherPayoutPage /> },
                   { path: "teachers/new", element: <AddTeacherPage /> },
                   { path: "teachers/:id/edit", element: <AddTeacherPage /> },
@@ -80,6 +88,8 @@ export const router = createBrowserRouter([
                   { path: "inventory/new", element: <AddInventoryPage /> },
                   { path: "inventory/:id/edit", element: <AddInventoryPage /> },
                   { path: "transport", element: <TransportPage /> },
+                  { path: "hostel", element: <HostelPage /> },
+                  { path: "documents", element: <DocumentsPage /> },
                   { path: "finance", element: <FinanceDashboard /> },
                   { path: "accounting", element: <AccountingPage /> },
                   { path: "reports", element: <ReportsPage /> },

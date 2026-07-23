@@ -8,6 +8,7 @@ Config is 12-factor — everything comes from environment variables.
 from pathlib import Path
 
 import environ
+from django.urls import reverse_lazy
 
 from config.logging import build_logging_config
 
@@ -36,8 +37,13 @@ SHARED_APPS = [
     "apps.accounts",  # custom user model
     "django.contrib.sessions",
     "django.contrib.messages",
+    # Admin theme (django-unfold) — must sit before django.contrib.admin.
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
     "django.contrib.admin",
     "django.contrib.staticfiles",
+    "apps.udise",  # UDISE school register (public-schema, admin-managed)
     "rest_framework",
     "corsheaders",
 ]
@@ -56,6 +62,8 @@ TENANT_APPS = [
     "apps.inventory",
     "apps.finance",
     "apps.transport",
+    "apps.hostel",
+    "apps.documents",
     "apps.notifications",
     "apps.portal",
     "apps.privacy",
@@ -94,7 +102,9 @@ PUBLIC_SCHEMA_URLCONF = "config.urls_public"  # public schema routes (provisioni
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # Project templates win over app templates (needed to override the
+        # admin index, which django_tenants also ships).
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -220,9 +230,109 @@ CORS_ALLOW_CREDENTIALS = True
 LOGGING = build_logging_config(level=env("LOG_LEVEL", default="INFO"))
 
 # --------------------------------------------------------------------------- #
+# Admin theme (django-unfold) — platform console look & feel.
+# --------------------------------------------------------------------------- #
+UNFOLD = {
+    "SITE_TITLE": "Fee Ledger Platform",
+    "SITE_HEADER": "Fee Ledger",
+    "SITE_SUBHEADER": "Platform Console",
+    "SITE_SYMBOL": "school",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "DASHBOARD_CALLBACK": "apps.tenants.dashboard.dashboard_callback",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Platform",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Dashboard",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("platform_admin:index"),
+                    },
+                    {
+                        "title": "UDISE Schools",
+                        "icon": "school",
+                        "link": reverse_lazy("platform_admin:udise_udiseschool_changelist"),
+                    },
+                    {
+                        "title": "Schools (Clients)",
+                        "icon": "location_city",
+                        "link": reverse_lazy("platform_admin:tenants_client_changelist"),
+                    },
+                    {
+                        "title": "Domains",
+                        "icon": "language",
+                        "link": reverse_lazy("platform_admin:tenants_domain_changelist"),
+                    },
+                    {
+                        "title": "Plans",
+                        "icon": "sell",
+                        "link": reverse_lazy("platform_admin:tenants_plan_changelist"),
+                    },
+                    {
+                        "title": "Backup runs",
+                        "icon": "backup",
+                        "link": reverse_lazy("platform_admin:tenants_backuprun_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Access",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Users",
+                        "icon": "person",
+                        "link": reverse_lazy("platform_admin:accounts_user_changelist"),
+                    },
+                    {
+                        "title": "Activity log",
+                        "icon": "history",
+                        "link": reverse_lazy("platform_admin:admin_logentry_changelist"),
+                    },
+                ],
+            },
+        ],
+    },
+    "COLORS": {
+        "primary": {
+            "50": "238 242 255",
+            "100": "224 231 255",
+            "200": "199 210 254",
+            "300": "165 180 252",
+            "400": "129 140 248",
+            "500": "99 102 241",
+            "600": "79 70 229",
+            "700": "67 56 202",
+            "800": "55 48 163",
+            "900": "49 46 129",
+            "950": "30 27 75",
+        },
+    },
+}
+
+# --------------------------------------------------------------------------- #
 # Money defaults.
 # --------------------------------------------------------------------------- #
 DEFAULT_CURRENCY = env("DEFAULT_CURRENCY", default="INR")
+
+# --------------------------------------------------------------------------- #
+# Web push (VAPID). Dev defaults ship a keypair; override in prod via env.
+# Public key is the browser applicationServerKey; private key is base64url DER.
+# --------------------------------------------------------------------------- #
+VAPID_PUBLIC_KEY = env(
+    "VAPID_PUBLIC_KEY",
+    default="BEypXENP1rfIC8jR6QTG3KLMS4KEJ_n58PEqJch2tJ8gFd9RQ-RLj-P5CALWmpvIWj2xZggwGIRk5AaZGngRGa4",
+)
+VAPID_PRIVATE_KEY = env(
+    "VAPID_PRIVATE_KEY",
+    default="MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZaFSgK1og199sQ35Jhah3s5M9wMEk6sHbex5Gyg-CkqhRANCAARMqVxDT9a3yAvI0ekExtyizEuChCf5-fDxKiXIdrSfIBXfUUPkS4_j-QgC1pqbyFo9sWYIMBiEZOQGmRp4ERmu",
+)
+VAPID_SUBJECT = env("VAPID_SUBJECT", default="mailto:support@feeledger.app")
 
 # --------------------------------------------------------------------------- #
 # Platform admin console (public schema, superuser-only). The path is

@@ -12,15 +12,17 @@ type ReportKey =
   | "risk"
   | "payouts"
   | "payments"
-  | "students"
+  | "collection-analysis"
   | "student-ledger"
-  | "parent-ledger";
+  | "parent-ledger"
+  | "students";
 
 const REPORTS: { key: ReportKey; title: string; desc: string; icon: string }[] = [
   { key: "defaulters", title: "Defaulters & Aging", desc: "Outstanding fees bucketed by how overdue they are.", icon: "⏳" },
   { key: "risk", title: "Predictive Risk", desc: "Students ranked by likelihood of not paying on time.", icon: "🔮" },
   { key: "payouts", title: "Teacher Payouts", desc: "Salary & incentive payouts, filter by status.", icon: "💸" },
   { key: "payments", title: "Payments Ledger", desc: "Every recorded payment for the period.", icon: "🧾" },
+  { key: "collection-analysis", title: "Collection Analysis", desc: "Collections by class, by employee and by method.", icon: "📊" },
   { key: "student-ledger", title: "Student Ledger", desc: "One student's billed-vs-paid running statement.", icon: "📒" },
   { key: "parent-ledger", title: "Parent Ledger", desc: "Combined statement across a family's children.", icon: "👨‍👩‍👧" },
   { key: "students", title: "Student Directory", desc: "Full student roster with contact & class details.", icon: "👥" },
@@ -267,6 +269,39 @@ function StudentsReport() {
   );
 }
 
+function CollectionAnalysisReport() {
+  const { data, isLoading } = useQuery({ queryKey: ["collection-breakdown"], queryFn: () => collections.breakdown() });
+  if (isLoading) return <p className="text-slate-500">Loading…</p>;
+  if (!data) return null;
+
+  const block = (title: string, rows: { key: string; count: number; total: string }[]) => (
+    <div>
+      <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">{title}</h3>
+      <Table
+        empty="No collections yet."
+        head={[title.replace("By ", ""), "Receipts", "Collected"]}
+        rows={rows.map((r) => [
+          <span key="k" className="font-medium capitalize text-slate-800">{r.key.replace("_", " ")}</span>,
+          String(r.count),
+          <span key="t" className="font-semibold text-emerald-600">{formatMoney(r.total)}</span>,
+        ])}
+      />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl bg-slate-50 px-4 py-3">
+        <span className="text-sm text-slate-500">Total collected · </span>
+        <span className="text-lg font-bold text-emerald-600">{formatMoney(data.total)}</span>
+      </div>
+      {block("By Class", data.by_class)}
+      {block("By Employee", data.by_employee)}
+      {block("By Method", data.by_method)}
+    </div>
+  );
+}
+
 function LedgerReport({ mode }: { mode: "student" | "parent" }) {
   const [term, setTerm] = useState("");
   const [picked, setPicked] = useState<Student | null>(null);
@@ -400,6 +435,7 @@ export function ReportsPage() {
           {active === "risk" && <RiskReport />}
           {active === "payouts" && <PayoutsReport />}
           {active === "payments" && <PaymentsReport />}
+          {active === "collection-analysis" && <CollectionAnalysisReport />}
           {active === "student-ledger" && <LedgerReport mode="student" />}
           {active === "parent-ledger" && <LedgerReport mode="parent" />}
           {active === "students" && <StudentsReport />}

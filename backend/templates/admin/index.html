@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+<style>
+  /* Data-viz palette roles (validated). Light + dark are both selected steps,
+     validated against the actual panel surfaces (#fff / #0f172a). Text always
+     wears ink tokens; marks carry the series colour. */
+  .pf-wrap {
+    --surface: #fff; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --baseline: #c3c2b7; --border: rgba(11,11,11,.10);
+    --series-1: #2a78d6; --series-2: #1baf7a; --series-3: #eda100; --series-4: #008300;
+    --series-5: #4a3aa7; --series-6: #e34948; --series-7: #e87ba4; --series-8: #eb6834;
+    --pos: #006300; --amber: #b45309;
+    max-width: 1180px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  html.dark .pf-wrap {
+    --surface: #0f172a; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #1e293b; --baseline: #383835; --border: rgba(255,255,255,.10);
+    --series-1: #3987e5; --series-2: #199e70; --series-3: #c98500; --series-4: #008300;
+    --series-5: #9085e9; --series-6: #e66767; --series-7: #d55181; --series-8: #d95926;
+    --pos: #0ca30c; --amber: #fab219;
+  }
+
+  .pf-h { font-size: 18px; font-weight: 600; margin: 0 0 16px; color: var(--ink); }
+  .pf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .pf-card, .pf-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px 20px; box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  }
+  .pf-card { transition: box-shadow .15s ease; }
+  .pf-card:hover { box-shadow: 0 6px 18px rgba(16,24,40,.08); }
+  .pf-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  /* Hero figure: proportional figures, ink token (never a series colour). */
+  .pf-value { font-size: 30px; font-weight: 700; margin-top: 6px; color: var(--ink); line-height: 1.05; }
+  .pf-sub { font-size: 12px; color: var(--ink2); margin-top: 5px; }
+
+  .pf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  @media (max-width: 900px) { .pf-row { grid-template-columns: 1fr; } }
+  .pf-panel h3 { font-size: 13px; font-weight: 600; margin: 0 0 4px; color: var(--ink); }
+  .pf-cap { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
+
+  /* Column chart — one series, magnitude over time. Recessive baseline. */
+  .pf-cols { display: flex; align-items: stretch; gap: 10px; height: 168px; }
+  .pf-col { flex: 1; display: flex; flex-direction: column; }
+  .pf-plot { flex: 1; display: flex; align-items: flex-end; justify-content: center;
+             border-bottom: 1px solid var(--baseline); }
+  .pf-mark { width: 62%; max-width: 34px; min-height: 3px; background: var(--series-1);
+             border-radius: 4px 4px 0 0; position: relative; transition: filter .12s ease; }
+  .pf-col:hover .pf-mark { filter: brightness(1.08); }
+  .pf-mark .v { position: absolute; top: -19px; left: 50%; transform: translateX(-50%);
+                font-size: 12px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .pf-mlabel { text-align: center; font-size: 11px; color: var(--muted); padding-top: 8px; }
+
+  /* Plan distribution — categorical bars in fixed hue order, direct-labelled. */
+  .pf-plan { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .pf-plan .name { width: 108px; font-size: 13px; color: var(--ink); white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+  .pf-track { flex: 1; height: 12px; background: var(--grid); border-radius: 9999px; }
+  .pf-fill { height: 12px; min-width: 3px; border-radius: 9999px; transition: filter .12s ease; }
+  .pf-plan:hover .pf-fill { filter: brightness(1.06); }
+  .pf-cnt { width: 30px; text-align: right; font-size: 13px; font-weight: 600; color: var(--ink);
+            font-variant-numeric: tabular-nums; }
+
+  .pf-links { margin-top: 18px; font-size: 13px; }
+  .pf-links a { color: var(--series-1); text-decoration: none; font-weight: 500; }
+  .pf-links a:hover { text-decoration: underline; }
+
+  /* Per-mark hover tooltip (shared floating layer). */
+  .pf-tip { position: fixed; z-index: 9999; pointer-events: none; opacity: 0; transition: opacity .1s;
+            background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 500;
+            padding: 5px 9px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.18); white-space: nowrap; }
+</style>
+
+<div class="pf-wrap">
+  <h2 class="pf-h">Platform overview</h2>
+
+  {% if kpis %}
+  <div class="pf-grid">
+    {% for k in kpis %}
+    <div class="pf-card">
+      <div class="pf-label">{{ k.label }}</div>
+      <div class="pf-value">{{ k.value }}</div>
+      <div class="pf-sub">{{ k.sub }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="pf-row">
+    <div class="pf-panel">
+      <h3>New schools</h3>
+      <p class="pf-cap">Schools onboarded per month · last 6 months</p>
+      <div class="pf-cols">
+        {% for g in growth %}
+        <div class="pf-col">
+          <div class="pf-plot">
+            <div class="pf-mark" style="height: {{ g.pct }}%"
+                 data-tip="{{ g.month }} · {{ g.new_schools }} new school{{ g.new_schools|pluralize }}">
+              <span class="v">{{ g.new_schools }}</span>
+            </div>
+          </div>
+          <div class="pf-mlabel">{{ g.month }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="pf-panel">
+      <h3>Plan distribution</h3>
+      <p class="pf-cap">Active schools by subscription plan</p>
+      {% for p in plan_mix %}
+      <div class="pf-plan">
+        <span class="name">{{ p.plan }}</span>
+        <span class="pf-track">
+          <span class="pf-fill" style="width: {{ p.pct }}%; background: var(--series-{{ forloop.counter }}, var(--series-1))"
+                data-tip="{{ p.plan }} · {{ p.count }} school{{ p.count|pluralize }}"></span>
+        </span>
+        <span class="pf-cnt">{{ p.count }}</span>
+      </div>
+      {% empty %}
+      <div class="pf-sub">No schools yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="pf-panel"><div class="pf-sub">Metrics are unavailable right now.</div></div>
+  {% endif %}
+
+  <p class="pf-links">
+    <a href="{% url 'platform_admin:ops' %}">→ Ops health</a>
+    &nbsp;·&nbsp;
+    <a href="{% url 'platform_admin:support' %}">→ Tenant support console</a>
+  </p>
+</div>
+
+<div class="pf-tip" id="pf-tip" role="status" aria-live="polite"></div>
+<script>
+  (function () {
+    var tip = document.getElementById("pf-tip");
+    if (!tip) return;
+    document.querySelectorAll(".pf-wrap [data-tip]").forEach(function (el) {
+      el.addEventListener("mouseenter", function () { tip.textContent = el.getAttribute("data-tip"); tip.style.opacity = "1"; });
+      el.addEventListener("mousemove", function (e) { tip.style.left = (e.clientX + 12) + "px"; tip.style.top = (e.clientY + 14) + "px"; });
+      el.addEventListener("mouseleave", function () { tip.style.opacity = "0"; });
+    });
+  })();
+</script>
+{% endblock %}

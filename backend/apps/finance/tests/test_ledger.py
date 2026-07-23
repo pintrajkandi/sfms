@@ -15,9 +15,9 @@ pytestmark = [pytest.mark.django_db]
 def test_seed_chart_of_accounts_is_idempotent(tenant_ctx):
     first = seed_chart_of_accounts()
     second = seed_chart_of_accounts()
-    assert first == 15
+    assert first == 16
     assert second == 0
-    assert Account.objects.filter(is_system=True).count() == 15
+    assert Account.objects.filter(is_system=True).count() == 16
 
 
 def test_post_journal_rejects_unbalanced(tenant_ctx):
@@ -77,3 +77,17 @@ def test_statements_reconcile(tenant_ctx):
     # Bank = 7,000; equity = retained earnings 7,000.
     assert bs["total_assets"] == "7000.00"
     assert bs["balanced"] is True
+
+
+def test_inventory_purchase_posts_journal(tenant_ctx):
+    from types import SimpleNamespace
+
+    from apps.finance.ledger import post_inventory_purchase
+
+    seed_chart_of_accounts()
+    item = SimpleNamespace(id=1, name="Desks", unit_cost="500.00", quantity=10, date_acquired=None)
+    post_inventory_purchase(item)
+    from apps.finance.statements import general_ledger
+
+    gl = general_ledger(account_code="1200")
+    assert gl["closing_balance"] == "5000.00"  # 500 × 10 capitalised as inventory asset

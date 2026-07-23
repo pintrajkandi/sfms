@@ -3,19 +3,19 @@
 Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 `Core Modules.pdf`. Updated as we build.
 
-> **Done (latest):** §18 SaaS subscription scaffolding — Plans (code, interval,
-> trial, limits, default flag), a seeded **Free** plan auto-assigned to every
-> school, `/subscription/` endpoint + **Settings → Subscription** tab (usage +
-> "paid plans coming soon"). Free for all tenants now; paid plans added later.
-> **Next up:** Collection-by-Class/Employee reports (§14); usage-based billing +
-> online subscription payments (§18, when paid plans launch); push (§15); Hostel.
+> **Done (latest batch):** Push notifications (§15, web-push + VAPID),
+> cross-school Admin Dashboard (§13, /platform), accountant dashboard breakouts
+> (§11), receipt polish (§2, QR + barcode + email receipt + printable page),
+> Parents as first-class records (§1, /parents), inventory accounting (§6).
+> **Remaining (per your call):** deferred SaaS billing (§18); 2FA / IP
+> restrictions dropped; Google/MS365 optional; multi-branch not needed.
 
 ---
 
 ## 1. School Management
 - [x] Classes & Sections
 - [x] Students
-- [~] Parents (guardian fields + OTP parent portal; no parent entity/management)
+- [x] Parents (first-class Parent records + siblings) — /parents
 - [x] Staff (teachers + payroll)
 - [~] User roles & permissions (backend RBAC done; management UI removed earlier)
 
@@ -24,7 +24,7 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [x] Class-wise fees
 - [~] Student-wise custom fees (custom invoices + discounts; no per-student plan)
 - [x] Route-wise transport fees (route fare + student route assignment)
-- [ ] Hostel fees
+- [x] Hostel fees (hostel fee + resident assignment)
 - [~] Late fee rules (per-invoice late fee; no rules engine)
 - [x] Discounts
 - [x] Scholarships
@@ -37,11 +37,11 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [x] Refunds
 - [x] Adjustments (credit notes)
 ### Fee Receipt
-- [~] QR code (only on GST e-invoice)
-- [ ] Barcode
+- [x] QR code on receipt (+ barcode)
+- [x] Barcode on receipt
 - [x] Digital signature
-- [~] Custom template
-- [~] Email receipt
+- [x] Custom template (school-branded printable receipt)
+- [x] Email receipt (on payment)
 - [x] WhatsApp receipt
 
 ## 3. Accounting  ← core DONE
@@ -66,7 +66,7 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 
 ## 6. Inventory
 - [x] Item tracking (categories, SKU, cost, supplier, edit)
-- [~] Inventory accounting (not journaled)
+- [x] Inventory accounting (purchases journaled to ledger)
 
 ## 7. Transport Accounting
 - [x] Routes + vehicles (drivers, capacity, route assignment)
@@ -77,12 +77,12 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [x] Razorpay + automatic reconciliation
 
 ## 11. Accountant Dashboard
-- [~] Daily/Monthly collection, pending, outstanding, trend, today's expenses
-- [ ] Cash in Hand / Bank Deposits / Yesterday Collection breakouts
+- [x] Daily/Monthly collection, pending, outstanding, trend, today's expenses
+- [x] Cash in Hand / Bank Deposits / Yesterday Collection breakouts
 
 ## 13. Admin Dashboard (cross-school)
-- [~] Platform admin + tenant/plan registry
-- [ ] MRR / Revenue / Growth / Renewals / Active Schools metrics
+- [~] Platform admin + tenant/plan registry (Django admin)
+- [x] MRR / Revenue / Growth / Renewals / Active Schools metrics (/platform)
 
 ## 14. Reports
 - [x] Outstanding, Ageing, Expense, GST, Monthly Collection
@@ -90,19 +90,21 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [x] Student Ledger, Parent Ledger (under /reports)
 - [x] Cash Book, Bank Book, Day Book (under /accounting)
 - [x] Transport Report (route profitability under /transport)
+- [x] Collection by Class / Employee / Method (Reports → Collection Analysis)
 - [~] Fee Register, Daily Collection, TDS
-- [ ] Collection by Employee / Branch / Class
-- [ ] Hostel Report
+- [ ] Collection by Branch (no multi-branch model yet)
+- [x] Hostel Report (occupancy + P/L under /hostel)
 
 ## 15. Notification Engine
 - [x] WhatsApp / SMS reminders
 - [~] Email reminders
-- [ ] Push notifications
+- [x] Push notifications (web-push + VAPID)
 - [x] Triggers: Due-soon, Overdue, Receipt Generated
 - [~] Trigger: New Fee Added
 
 ## 16. Document Management
-- [~] Files stored in MinIO; no unified document-store UI + categories
+- [x] Unified document store (upload/list/download/delete) with categories
+      (student docs, receipts, invoices, vendor bills, salary slips) — /documents
 
 ## 17. Audit Logs
 - [x] Who / action / entity / before-after / timestamp + UI

@@ -18,6 +18,13 @@ boto3>=1.35
 # Media
 Pillow>=10.4
 
+# Receipts (QR + barcode, pure-Python SVG)
+segno>=1.6
+python-barcode>=0.15
+
+# Web push notifications (VAPID)
+pywebpush>=2.0
+
 # Exports (XLSX)
 openpyxl>=3.1
 
@@ -34,9 +41,14 @@ sentry-sdk>=2.13
 gunicorn>=23.0
 whitenoise>=6.7   # serve static files (incl. Django admin) under gunicorn
 
+# Admin theme
+django-unfold>=0.43
+
 # Dev / test
 pytest>=8.3
 pytest-django>=4.9
 ruff>=0.6
 black>=24.8
 mypy>=1.11
+pandas
+openpyxl

@@ -27,6 +27,7 @@ export interface Student {
   status: string;
   previous_school: string;
   notes: string;
+  parent?: number | null;
 }
 
 export interface Section {
@@ -258,6 +259,9 @@ export interface CollectionStats {
   total_students: number;
   todays_collection: string;
   todays_receipts: number;
+  yesterday_collection: string;
+  cash_in_hand: string;
+  bank_deposits: string;
 }
 
 export type PayoutStatus =

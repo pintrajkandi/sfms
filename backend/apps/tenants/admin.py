@@ -11,15 +11,18 @@ from datetime import timedelta
 
 from django import forms
 from django.contrib import messages
-from django.contrib.admin import ModelAdmin, TabularInline, action, display
+from django.contrib.admin import action, display
 from django.contrib.admin.models import LogEntry
-from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django_tenants.utils import get_public_schema_name, tenant_context
+from unfold.admin import ModelAdmin, TabularInline
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
 from apps.accounts.models import User
 
@@ -219,6 +222,21 @@ def delete_archived_action(modeladmin, request, queryset):
     )
 
 
+@action(description="Back up now (per-school)")
+def backup_now_action(modeladmin, request, queryset):
+    from .tasks import backup_school
+
+    n = 0
+    for client in queryset.exclude(schema_name=_public()):
+        backup_school.delay(client.schema_name)
+        n += 1
+    modeladmin.message_user(
+        request,
+        f"Queued a backup for {n} school(s). They'll appear under Backup runs shortly.",
+        messages.SUCCESS,
+    )
+
+
 class ClientAdmin(ModelAdmin):
     list_display = (
         "name",
@@ -247,6 +265,7 @@ class ClientAdmin(ModelAdmin):
         mark_paid,
         impersonate_admin,
         export_tenant_action,
+        backup_now_action,
         archive_action,
         delete_archived_action,
     ]
@@ -364,29 +383,111 @@ class DomainAdmin(ModelAdmin):
     autocomplete_fields = ("tenant",)
 
 
+@action(description="Verify integrity + restore-drill")
+def verify_backup_action(modeladmin, request, queryset):
+    from .backups import verify_backup
+
+    n = 0
+    for run in queryset:
+        verify_backup(run, actor=request.user)
+        n += 1
+    modeladmin.message_user(request, f"Verified {n} backup(s).", messages.SUCCESS)
+
+
+@action(description="⚠ RESTORE selected backup into its school (destructive)")
+def restore_backup_action(modeladmin, request, queryset):
+    from apps.core.services import ServiceError
+
+    from .backups import restore_schema_backup
+
+    if not _require_reauth(modeladmin, request):
+        return
+    runs = [r for r in queryset if r.schema_name]
+    if len(runs) != 1:
+        modeladmin.message_user(
+            request, "Select exactly one per-school backup to restore.", messages.ERROR
+        )
+        return
+    run = runs[0]
+    try:
+        restore_schema_backup(run, actor=request.user)
+    except ServiceError as exc:
+        modeladmin.message_user(request, f"Restore failed: {exc}", messages.ERROR)
+        return
+    modeladmin.message_user(
+        request,
+        f"Restored '{run.schema_name}' from backup '{run.label}'. Verify the school before use.",
+        messages.WARNING,
+    )
+
+
 class BackupRunAdmin(ModelAdmin):
-    """Read-only view of verified backups (CLAUDE.md §10)."""
+    """Backups: view, download and restore per-school dumps (CLAUDE.md §10)."""
 
     list_display = (
         "label",
+        "school",
         "status",
         "verified",
-        "size_bytes",
+        "size_display",
         "table_count_total",
+        "download_link",
         "created_at",
     )
-    list_filter = ("status", "verified")
+    list_filter = ("status", "verified", "client")
+    search_fields = ("label", "schema_name", "client__name")
     date_hierarchy = "created_at"
     readonly_fields = tuple(f.name for f in BackupRun._meta.fields)
+    actions = [verify_backup_action, restore_backup_action]
+
+    @display(description="School")
+    def school(self, obj):
+        return obj.client.name if obj.client else (obj.schema_name or "— (whole cluster)")
+
+    @display(description="Size")
+    def size_display(self, obj):
+        mb = (obj.size_bytes or 0) / (1024 * 1024)
+        return f"{mb:.1f} MB"
+
+    @display(description="File")
+    def download_link(self, obj):
+        if obj.storage_key or obj.path:
+            url = reverse("platform_admin:tenants_backuprun_download", args=[obj.pk])
+            return format_html('<a href="{}">⬇ Download</a>', url)
+        return "—"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<int:pk>/download/",
+                self.admin_site.admin_view(self.download_view),
+                name="tenants_backuprun_download",
+            )
+        ]
+        return custom + urls
+
+    def download_view(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        from .backups import materialize
+
+        run = BackupRun.objects.filter(pk=pk).first()
+        if run is None or not (run.storage_key or run.path):
+            raise Http404("Backup file not found.")
+        local = materialize(run)
+        resp = FileResponse(open(local, "rb"), as_attachment=True, filename=f"{run.label}.dump")
+        return resp
 
     def has_add_permission(self, request):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return False
+        # Read-only fields, but allow the detail view + actions.
+        return True
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return True  # prune old backups
 
 
 class ActivityLogAdmin(ModelAdmin):
@@ -408,12 +509,19 @@ class ActivityLogAdmin(ModelAdmin):
         return False
 
 
-class PlatformUserAdmin(UserAdmin):
+class PlatformUserAdmin(BaseUserAdmin, ModelAdmin):
     """Platform (public-schema) users. Tenant staff live in each school's schema."""
+
+    # Unfold-styled auth forms (password widgets render correctly).
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
 
     list_display = ("username", "email", "role", "is_superuser", "is_active", "email_verified")
     list_filter = ("role", "is_superuser", "is_active", "email_verified")
-    fieldsets = UserAdmin.fieldsets + (("SFMS", {"fields": ("role", "phone", "email_verified")}),)
+    fieldsets = BaseUserAdmin.fieldsets + (
+        ("SFMS", {"fields": ("role", "phone", "email_verified")}),
+    )
 
 
 class PlanAdmin(ModelAdmin):

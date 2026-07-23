@@ -43,3 +43,20 @@ def test_paid_invoice_not_a_defaulter(tenant_ctx):
     inv = create_invoice(student=student, lines=[{"fee_type": ft, "unit_price": "500.00"}])
     record_payment(invoice=inv, amount="500.00", method="cash", idempotency_key="k1")
     assert defaulter_report()["count"] == 0
+
+
+def test_collection_breakdown_groups(tenant_ctx):
+    from apps.collections.selectors import collection_breakdown
+
+    student, ft = _student(), _fee_type()
+    inv = create_invoice(student=student, lines=[{"fee_type": ft, "unit_price": "1000.00"}])
+    record_payment(invoice=inv, amount="600.00", method="cash", idempotency_key="k1")
+    record_payment(invoice=inv, amount="400.00", method="upi", idempotency_key="k2")
+
+    b = collection_breakdown()
+    assert b["total"] == "1000.00"
+    assert b["by_class"][0]["key"] == "Grade 9"
+    assert b["by_class"][0]["total"] == "1000.00"
+    methods = {m["key"]: m["total"] for m in b["by_method"]}
+    assert methods["cash"] == "600.00"
+    assert methods["upi"] == "400.00"

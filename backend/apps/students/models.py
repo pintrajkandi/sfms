@@ -4,7 +4,7 @@ from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
-from apps.core.models import SoftDeleteModel
+from apps.core.models import SoftDeleteModel, TimeStampedModel
 
 
 class Gender(models.TextChoices):
@@ -63,6 +63,25 @@ class Student(SoftDeleteModel):
         related_name="students",
     )
     transport_pickup = models.CharField(max_length=120, blank=True)
+
+    # Hostel (optional) — links a resident to a hostel for fees + occupancy.
+    hostel = models.ForeignKey(
+        "hostel.Hostel",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="residents",
+    )
+    hostel_room = models.CharField(max_length=20, blank=True)
+
+    # Parent as a first-class record (siblings share one Parent).
+    parent = models.ForeignKey(
+        "students.Parent",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
     academic_year = models.ForeignKey(
         "schools.AcademicYear",
         on_delete=models.PROTECT,
@@ -83,3 +102,21 @@ class Student(SoftDeleteModel):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
+
+
+class Parent(TimeStampedModel):
+    """A parent/guardian record. One parent can have several children (siblings)."""
+
+    name = models.CharField(max_length=150)
+    relation = models.CharField(max_length=50, blank=True)  # Father / Mother / Guardian
+    phone = models.CharField(max_length=32, blank=True)
+    email = models.EmailField(blank=True)
+    occupation = models.CharField(max_length=120, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self) -> str:
+        return self.name

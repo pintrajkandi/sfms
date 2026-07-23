@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="px-4">
+  <a href="{% url 'platform_admin:index' %}">Home</a>
+  &rsaquo; <a href="{% url 'platform_admin:udise_udiseschool_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; Import CSV
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4 text-sm text-font-subtle-light dark:text-font-subtle-dark">
+  Upload one or more UDISE export files. Only <strong>state, district, address,
+  class-to, email, school name</strong> are imported; obfuscated emails
+  (<code>[at]</code>/<code>[dot]</code>) are fixed automatically, and re-importing
+  the same file will not create duplicates.
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <div class="submit-row mt-4">
+    <button type="submit" class="bg-primary-600 text-white px-4 py-2 rounded-default cursor-pointer">Import</button>
+  </div>
+</form>
+{% endblock %}

@@ -46,6 +46,7 @@ DEFAULT_ACCOUNTS = [
     ("5100", "Operating Expenses", AccountType.EXPENSE),
     ("5200", "Refunds & Concessions", AccountType.EXPENSE),
     ("5300", "Transport Expenses", AccountType.EXPENSE),
+    ("5400", "Hostel Expenses", AccountType.EXPENSE),
 ]
 
 
@@ -192,6 +193,43 @@ def post_transport_expense(expense) -> None:
         source_id=expense.id,
         lines=[
             {"account": "5300", "debit": amount, "credit": 0},
+            {
+                "account": _cash_account(getattr(expense, "payment_method", "")),
+                "debit": 0,
+                "credit": amount,
+            },
+        ],
+    )
+
+
+def post_inventory_purchase(item) -> None:
+    """Dr Inventory (asset), Cr Bank — capitalise the stock purchase."""
+    amount = _q(_q(item.unit_cost) * (item.quantity or 0))
+    if amount <= ZERO:
+        return
+    post_journal(
+        date=getattr(item, "date_acquired", None) or date.today(),
+        narration=f"Inventory purchase: {item.name}",
+        source_type="inventory",
+        source_id=item.id,
+        lines=[
+            {"account": "1200", "debit": amount, "credit": 0},
+            {"account": "1010", "debit": 0, "credit": amount},
+        ],
+    )
+
+
+def post_hostel_expense(expense) -> None:
+    amount = _q(expense.amount)
+    if amount <= ZERO:
+        return
+    post_journal(
+        date=getattr(expense, "spent_on", None) or date.today(),
+        narration=f"Hostel: {expense.get_category_display()}",
+        source_type="hostel_expense",
+        source_id=expense.id,
+        lines=[
+            {"account": "5400", "debit": amount, "credit": 0},
             {
                 "account": _cash_account(getattr(expense, "payment_method", "")),
                 "debit": 0,

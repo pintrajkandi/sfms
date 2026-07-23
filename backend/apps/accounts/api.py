@@ -171,6 +171,20 @@ class SubscriptionView(APIView):
         return Response(subscription_status(request.tenant, student_count=count))
 
 
+class PlatformMetricsView(APIView):
+    """Cross-school SaaS metrics — platform superusers only."""
+
+    def get(self, request):
+        if not request.user.is_superuser:
+            return Response(
+                {"detail": "Platform metrics are restricted to platform administrators."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        from apps.tenants.metrics import platform_metrics
+
+        return Response(platform_metrics())
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 

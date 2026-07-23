@@ -32,6 +32,8 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         // Never cache API calls — always hit the tenant backend fresh.
         navigateFallbackDenylist: [/^\/api/],
+        // Custom push / notificationclick handlers merged into the generated SW.
+        importScripts: ["push-handler.js"],
       },
     }),
   ],

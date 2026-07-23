@@ -47,3 +47,17 @@ def test_verify_missing_file_marks_failed(db):
     run = backups.verify_backup(run)
     assert run.status == BackupRun.Status.FAILED
     assert run.error == "backup file missing"
+
+
+def test_schema_table_counts_scopes_to_one_schema(db):
+    counts = backups.schema_table_counts("public")
+    assert isinstance(counts, dict)
+    assert all(k.startswith("public.") for k in counts)
+
+
+def test_restore_rejects_non_school_backup(db):
+    from apps.core.services import ServiceError
+
+    run = BackupRun(label="whole-cluster", schema_name="")
+    with pytest.raises(ServiceError):
+        backups.restore_schema_backup(run)

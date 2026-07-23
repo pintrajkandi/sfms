@@ -239,6 +239,188 @@ def verify_backup(run: BackupRun, *, actor=None) -> BackupRun:
     return run
 
 
+# --------------------------------------------------------------------------- #
+# Per-school (per-schema) backups — durable in object storage, restorable from
+# the platform admin. One dump per tenant schema so a single school can be
+# handed over or rolled back independently.
+# --------------------------------------------------------------------------- #
+def schema_table_counts(schema_name: str, cursor=None) -> dict[str, int]:
+    """Exact row count per base table for a single schema."""
+    own = cursor is None
+    cursor = cursor or connection.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT table_name FROM information_schema.tables
+            WHERE table_type = 'BASE TABLE' AND table_schema = %s
+            ORDER BY table_name
+            """,
+            [schema_name],
+        )
+        counts: dict[str, int] = {}
+        for (name,) in cursor.fetchall():
+            cursor.execute(f'SELECT count(*) FROM "{schema_name}"."{name}"')
+            counts[f"{schema_name}.{name}"] = cursor.fetchone()[0]
+        return counts
+    finally:
+        if own:
+            cursor.close()
+
+
+def create_schema_backup(*, client, label: str = "", actor=None) -> BackupRun:
+    """pg_dump one school's schema, checksum it, and store it in object storage."""
+    if not shutil.which("pg_dump"):
+        raise ServiceError("pg_dump not available (install postgresql-client).")
+
+    schema = client.schema_name
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    label = label or f"{schema}-{datetime.now():%Y%m%d-%H%M%S}"
+    local = os.path.join(BACKUP_DIR, f"{label}-{uuid.uuid4().hex[:8]}.dump")
+    db = _db()
+
+    counts = schema_table_counts(schema)
+    try:
+        subprocess.run(
+            [
+                "pg_dump",
+                "-Fc",
+                "--schema",
+                schema,
+                "-h",
+                db["host"],
+                "-p",
+                db["port"],
+                "-U",
+                db["user"],
+                "-d",
+                db["name"],
+                "-f",
+                local,
+            ],
+            env=_pg_env(),
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ServiceError(f"pg_dump failed: {exc.stderr.decode()[:200]}") from exc
+
+    sha, size = _sha256(local), os.path.getsize(local)
+    key = f"backups/{schema}/{os.path.basename(local)}"
+    from django.core.files import File
+    from django.core.files.storage import default_storage
+
+    with open(local, "rb") as f:
+        default_storage.save(key, File(f))
+    try:
+        os.remove(local)  # object storage is the durable copy
+    except OSError:
+        pass
+
+    run = BackupRun.objects.create(
+        client=client,
+        schema_name=schema,
+        label=label,
+        storage_key=key,
+        sha256=sha,
+        size_bytes=size,
+        table_count_total=sum(counts.values()),
+        table_counts=counts,
+    )
+    log.info(
+        "school backup created schema=%s size=%s tables=%s",
+        schema,
+        size,
+        len(counts),
+        **ctx(user=getattr(actor, "id", "-"), entity=run.id, action="create_schema_backup"),
+    )
+    return run
+
+
+def materialize(run: BackupRun) -> str:
+    """Return a local path to the dump, downloading from storage if needed."""
+    if run.path and os.path.exists(run.path):
+        return run.path
+    if run.storage_key:
+        from django.core.files.storage import default_storage
+
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        local = os.path.join(BACKUP_DIR, os.path.basename(run.storage_key))
+        with default_storage.open(run.storage_key, "rb") as src, open(local, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+        return local
+    raise ServiceError("Backup file is not available (no local path or storage key).")
+
+
+def restore_schema_backup(run: BackupRun, *, actor=None) -> BackupRun:
+    """DESTRUCTIVE: drop the school's schema and restore it from this backup."""
+    if not run.schema_name:
+        raise ServiceError("This is not a per-school backup; cannot restore a schema.")
+    if not tools_available():
+        raise ServiceError("pg_restore not available (install postgresql-client).")
+
+    local = materialize(run)
+    if _sha256(local) != run.sha256:
+        raise ServiceError("Backup checksum mismatch — refusing to restore a corrupt dump.")
+
+    db = _db()
+    schema = run.schema_name
+
+    import psycopg
+
+    conn = psycopg.connect(
+        host=db["host"],
+        port=db["port"],
+        user=db["user"],
+        password=db["password"],
+        dbname=db["name"],
+    )
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+            cur.execute(f'CREATE SCHEMA "{schema}"')
+    finally:
+        conn.close()
+
+    # -Fc --schema dumps schema-qualified objects; restore recreates them.
+    proc = subprocess.run(
+        [
+            "pg_restore",
+            "-h",
+            db["host"],
+            "-p",
+            db["port"],
+            "-U",
+            db["user"],
+            "-d",
+            db["name"],
+            "--no-owner",
+            local,
+        ],
+        env=_pg_env(),
+        check=False,
+        capture_output=True,
+    )
+    restored = schema_table_counts(schema)
+    mismatches = compare_counts(run.table_counts, restored)
+    ok = len(mismatches) == 0
+    level = log.info if ok else log.error
+    level(
+        "school backup restored schema=%s ok=%s mismatches=%s",
+        schema,
+        ok,
+        len(mismatches),
+        **ctx(user=getattr(actor, "id", "-"), entity=run.id, action="restore_schema_backup"),
+    )
+    if not ok and proc.stderr:
+        log.warning(
+            "pg_restore stderr: %s",
+            proc.stderr.decode()[:300],
+            **ctx(action="restore_schema_backup"),
+        )
+    return run
+
+
 def _counts_via_psql(dbname: str) -> dict[str, int]:
     """Row counts in a freshly-restored scratch DB (separate connection)."""
     import psycopg

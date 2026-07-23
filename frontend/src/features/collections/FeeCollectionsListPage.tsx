@@ -75,8 +75,9 @@ export function FeeCollectionsListPage() {
                 </td>
                 <td className="px-6 py-3 text-slate-500">{p.reference || "—"}</td>
                 <td className="px-6 py-3 text-right font-semibold text-emerald-600">{formatMoney(p.amount, p.currency)}</td>
-                <td className="px-6 py-3">
-                  <Link to={`/invoices/${p.invoice}`} className="text-xs font-semibold text-brand hover:underline">View</Link>
+                <td className="px-6 py-3 whitespace-nowrap">
+                  <Link to={`/invoices/${p.invoice}`} className="text-xs font-semibold text-brand hover:underline">Invoice</Link>
+                  <Link to={`/receipts/${p.id}`} className="ml-3 text-xs font-semibold text-brand hover:underline">Receipt</Link>
                 </td>
               </tr>
             ))}

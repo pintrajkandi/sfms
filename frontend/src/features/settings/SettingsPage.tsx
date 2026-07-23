@@ -9,6 +9,7 @@ import { ClassesPage } from "./ClassesPage";
 import { DepartmentsTab } from "./DepartmentsTab";
 import { FeeSetupPage } from "./FeeSetupPage";
 import { SubscriptionTab } from "./SubscriptionTab";
+import { PushToggle } from "./PushToggle";
 
 const TABS = [
   "School Info",
@@ -366,6 +367,7 @@ function Notifications({ form, set }: SectionProps) {
           <span className="text-sm font-medium text-slate-800">Overdue alerts</span>
           <input type="checkbox" className="h-5 w-5 rounded border-slate-300" checked={!!form.notify_overdue} onChange={(e) => set("notify_overdue", e.target.checked)} />
         </label>
+        <PushToggle />
       </div>
     </Section>
   );

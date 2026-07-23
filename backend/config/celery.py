@@ -33,6 +33,12 @@ app.conf.beat_schedule = {
         "task": "apps.tenants.tasks.nightly_backup",
         "schedule": 60 * 60 * 24.0,  # once daily
     },
+    # Daily per-school schema backup to object storage (downloadable/restorable
+    # from the platform admin).
+    "nightly-school-backups": {
+        "task": "apps.tenants.tasks.nightly_school_backups",
+        "schedule": 60 * 60 * 24.0,  # once daily
+    },
 }
 
 

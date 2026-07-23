@@ -11,12 +11,12 @@ Adds a cross-tenant dashboard (the index) and an ops-health panel.
 
 from __future__ import annotations
 
-from django.contrib.admin import AdminSite
 from django.template.response import TemplateResponse
 from django.urls import path
+from unfold.sites import UnfoldAdminSite
 
 
-class PlatformAdminSite(AdminSite):
+class PlatformAdminSite(UnfoldAdminSite):
     site_header = "Fee Ledger — Platform Console"
     site_title = "Fee Ledger Platform"
     index_title = "Schools, domains & platform operations"
