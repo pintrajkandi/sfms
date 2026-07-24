@@ -134,3 +134,4 @@ Status legend: `[x]` done · `[~]` partial · `[ ]` not built. Mapped against
 - [~] Disaster recovery (warm standby), SSO (Auth0, env-gated)
 - [ ] 2FA
 - [ ] IP restrictions
+
