@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 from rest_framework import serializers
@@ -43,6 +44,21 @@ class TeacherSerializer(serializers.ModelSerializer):
             "first_name": {"required": True, "allow_blank": False},
             "employee_id": {"required": False, "allow_blank": True},
         }
+
+    def validate_phone(self, value):
+        """Phone must be exactly 10 digits and unique across teachers."""
+        if not value:
+            return value
+        digits = re.sub(r"\D", "", value)
+        if len(digits) != 10:
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
+        value = digits
+        qs = Teacher.objects.alive().filter(phone=value)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("A teacher with this phone number already exists.")
+        return value
 
     def create(self, validated_data):
         classes = validated_data.pop("classes", [])

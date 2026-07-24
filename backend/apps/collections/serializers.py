@@ -287,6 +287,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "amount",
             "currency",
             "method",
+            "receipt_number",
             "reference",
             "status",
             "paid_at",
@@ -304,6 +305,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "status",
             "currency",
+            "receipt_number",
             "recorded_by",
             "signature",
             "signed_hash",

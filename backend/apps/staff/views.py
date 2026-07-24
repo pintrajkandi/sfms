@@ -35,22 +35,25 @@ class PayoutViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
-        payout = create_payout(
-            teacher=d["teacher"],
-            base_amount=d["base_amount"],
-            bonus_amount=d.get("bonus_amount", 0),
-            deductions=d.get("deductions", 0),
-            pay_period=d["pay_period"],
-            pay_type=d.get("pay_type", "salary"),
-            currency=d.get("currency", "INR"),
-            payment_method=d.get("payment_method", ""),
-            payment_reference=d.get("payment_reference", ""),
-            notes=d.get("notes", ""),
-            days_present=d.get("days_present"),
-            days_absent=d.get("days_absent"),
-            deduction_reason=d.get("deduction_reason", ""),
-            actor=request.user,
-        )
+        try:
+            payout = create_payout(
+                teacher=d["teacher"],
+                base_amount=d["base_amount"],
+                bonus_amount=d.get("bonus_amount", 0),
+                deductions=d.get("deductions", 0),
+                pay_period=d["pay_period"],
+                pay_type=d.get("pay_type", "salary"),
+                currency=d.get("currency", "INR"),
+                payment_method=d.get("payment_method", ""),
+                payment_reference=d.get("payment_reference", ""),
+                notes=d.get("notes", ""),
+                days_present=d.get("days_present"),
+                days_absent=d.get("days_absent"),
+                deduction_reason=d.get("deduction_reason", ""),
+                actor=request.user,
+            )
+        except ServiceError as exc:
+            raise ValidationError(str(exc)) from exc
         return Response(self.get_serializer(payout).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])

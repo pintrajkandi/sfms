@@ -46,12 +46,12 @@ type NavItem = { to: string; label: string; icon: (p: IconProps) => JSX.Element;
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: HomeIcon, end: true },
   { to: "/students", label: "Students", icon: UsersIcon },
-  { to: "/parents", label: "Parents", icon: UsersIcon },
   { to: "/fee-collection", label: "Fee Collection", icon: WalletIcon },
-  { to: "/fee-collections", label: "Collections", icon: CoinsIcon },
   { to: "/invoices", label: "Invoices", icon: DocIcon },
-  { to: "/payouts", label: "Teacher Payouts", icon: CoinsIcon },
+  { to: "/teachers", label: "Teachers", icon: UsersIcon },
   { to: "/teachers/new", label: "Add Teacher", icon: UsersIcon },
+  { to: "/payouts", label: "Teacher Payouts", icon: CoinsIcon },
+  { to: "/teacher-payouts", label: "Payouts List", icon: CoinsIcon },
   { to: "/expenses/new", label: "Expenses", icon: DocIcon },
   { to: "/inventory", label: "Inventory", icon: BoxIcon },
   { to: "/transport", label: "Transport", icon: BusIcon },
@@ -63,7 +63,6 @@ const NAV: NavItem[] = [
   { to: "/risk", label: "Predictive", icon: ChartIcon },
   { to: "/audit-log", label: "Audit Log", icon: DocIcon, adminOnly: true },
   { to: "/support", label: "Support", icon: ChatIcon },
-  { to: "/platform", label: "Platform", icon: ChartIcon, superuserOnly: true },
   { to: "/settings", label: "Settings", icon: CogIcon },
 ];
 

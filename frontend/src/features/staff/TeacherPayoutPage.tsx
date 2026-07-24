@@ -6,6 +6,7 @@ import { payouts, teachers } from "@/api/resources";
 import type { Payout, PayoutStatus, Teacher } from "@/api/types";
 import { Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
 import { MonthPicker } from "@/components/MonthPicker";
+import { alertError } from "@/lib/alerts";
 import { formatMoney } from "@/lib/money";
 
 const readonly = "bg-slate-50 text-slate-600";
@@ -105,7 +106,12 @@ export function TeacherPayoutPage() {
       resetForm();
       qc.invalidateQueries({ queryKey: ["payouts"] });
     },
-    onError: (e) => setError(e instanceof ApiError ? e.detail : "Could not submit payout."),
+    onError: (e) => {
+      const msg = e instanceof ApiError ? e.detail : "Could not submit payout.";
+      // Duplicate pay-period (and any other rejection) surfaces as a SweetAlert.
+      void alertError("Payout not created", msg);
+      setError(msg);
+    },
   });
 
   const transition = useMutation({

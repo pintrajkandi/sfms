@@ -32,7 +32,9 @@ def barcode_data_uri(text: str) -> str:
 
 
 def receipt_number(payment) -> str:
-    return f"{payment.invoice.invoice_number}-R{payment.id}"
+    # Prefer the auto-generated numeric receipt number; fall back to the legacy
+    # composite form for any pre-existing payment that predates the field.
+    return payment.receipt_number or f"{payment.invoice.invoice_number}-R{payment.id}"
 
 
 def receipt_data(payment) -> dict:

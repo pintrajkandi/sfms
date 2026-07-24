@@ -85,9 +85,7 @@ def _process_batch(batch: list[UdiseSchool]) -> int:
         # Query existing records from DB WITH primary keys set
         existing_schools = {
             (s.school_name, s.address, s.state_id): s
-            for s in UdiseSchool.objects.filter(
-                school_name__in=names, address__in=addresses
-            )
+            for s in UdiseSchool.objects.filter(school_name__in=names, address__in=addresses)
         }
 
         to_create = []

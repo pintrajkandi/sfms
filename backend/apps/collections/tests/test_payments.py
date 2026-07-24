@@ -78,3 +78,40 @@ def test_overpayment_rejected(tenant_ctx):
     inv = create_invoice(student=student, lines=[{"fee_type": ft, "unit_price": "100.00"}])
     with pytest.raises(ServiceError):
         record_payment(invoice=inv, amount="150.00", method="cash", idempotency_key="over")
+
+
+def test_annual_fee_drives_paid_and_outstanding(tenant_ctx):
+    from apps.collections.selectors import student_fee_summary
+
+    student = _student()
+    student.tuition_fee = Decimal("1000.00")
+    student.transport_fee = Decimal("500.00")
+    student.save(update_fields=["tuition_fee", "transport_fee"])
+
+    summary = student_fee_summary(student)
+    assert summary["annual_fee"] == "1500.00"
+    assert summary["total_fee"] == "1500.00"
+    assert summary["outstanding"] == "1500.00"  # nothing paid yet
+
+    # A payment reduces the outstanding against the assigned annual fee.
+    inv = create_invoice(student=student, lines=[{"fee_type": _fee_type(), "unit_price": "1000.00"}])
+    record_payment(invoice=inv, amount="400.00", method="cash", idempotency_key="af1")
+
+    summary = student_fee_summary(student)
+    assert summary["paid"] == "400.00"
+    assert summary["outstanding"] == "1100.00"
+
+
+def test_receipt_number_auto_generated_and_numeric(tenant_ctx):
+    student, ft = _student(), _fee_type()
+    inv = create_invoice(student=student, lines=[{"fee_type": ft, "unit_price": "1000.00"}])
+
+    p = record_payment(invoice=inv, amount="500.00", method="upi", idempotency_key="rn1")
+    assert p.receipt_number  # populated
+    assert p.receipt_number.isdigit()  # purely numeric
+
+    # The rendered receipt uses the numeric number, not the legacy composite form.
+    from apps.collections.receipts import receipt_number
+
+    assert receipt_number(p) == p.receipt_number
+    assert "-R" not in receipt_number(p)

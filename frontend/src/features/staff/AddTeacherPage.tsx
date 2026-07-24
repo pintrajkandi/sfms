@@ -16,7 +16,7 @@ const STATUSES = [
   { value: "available", label: "Available", dot: "bg-slate-300" },
 ];
 const CLASSES = [...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
-const ROLES = ["Class Teacher", "Subject Teacher", "Assistant Teacher", "Coordinator"];
+const ROLES = ["Class Teacher", "Assistant Teacher", "Coordinator"];
 const YEARS = ["2024-2025", "2025-2026", "2023-2024"];
 
 const EMPTY = {
@@ -112,9 +112,23 @@ export function AddTeacherPage() {
   }
 
   function validate(): boolean {
-    const req: (keyof typeof form)[] = ["first_name", "last_name"];
+    const req: (keyof typeof form)[] = [
+      "first_name",
+      "last_name",
+      "department",
+      "joining_date",
+      "account_holder_name",
+      "bank_name",
+      "account_number",
+      "ifsc_code",
+    ];
     const next: Record<string, string> = {};
     req.forEach((k) => !form[k] && (next[k] = "Required"));
+    // Phone: mandatory, numeric, exactly 10 digits.
+    if (!form.phone) next.phone = "Required";
+    else if (!/^\d{10}$/.test(form.phone)) next.phone = "Enter a 10-digit number";
+    // Salary structure: base salary must be a positive amount.
+    if (!form.base_salary || Number(form.base_salary) <= 0) next.base_salary = "Enter base salary";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -179,8 +193,14 @@ export function AddTeacherPage() {
               <Labeled label="Email address" error={errors.email}>
                 <TextInput type="email" placeholder="teacher@school.edu" value={form.email} onChange={(e) => set("email", e.target.value)} />
               </Labeled>
-              <Labeled label="Phone number">
-                <TextInput placeholder="+1 (555) 000-0000" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+              <Labeled label="Phone number" required error={errors.phone}>
+                <TextInput
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="10-digit mobile number"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                />
               </Labeled>
               <Labeled label="Gender">
                 <Select value={form.gender} onChange={(e) => set("gender", e.target.value)}>
@@ -204,7 +224,7 @@ export function AddTeacherPage() {
               <Labeled label="Employee ID" error={errors.employee_id}>
                 <TextInput className="bg-slate-50 text-slate-500" placeholder="Auto-generated on save" value={form.employee_id} readOnly />
               </Labeled>
-              <Labeled label="Department">
+              <Labeled label="Department" required error={errors.department}>
                 {deptList.data && deptList.data.results.length > 0 ? (
                   <Select value={form.department} onChange={(e) => set("department", e.target.value)}>
                     <option value="">Select department</option>
@@ -214,7 +234,7 @@ export function AddTeacherPage() {
                   <TextInput placeholder="Add departments in Settings → Departments" value={form.department} onChange={(e) => set("department", e.target.value)} />
                 )}
               </Labeled>
-              <Labeled label="Joining date" error={errors.joining_date}>
+              <Labeled label="Joining date" required error={errors.joining_date}>
                 <DatePicker value={form.joining_date} onChange={(v) => set("joining_date", v)} minYear={2000} placeholder="Select joining date" />
               </Labeled>
               <Labeled label="Employment type">
@@ -271,7 +291,7 @@ export function AddTeacherPage() {
           <Section icon={<TrendIcon className="h-5 w-5 text-emerald-600" />} tint="bg-emerald-50" title="Salary Structure (monthly, ₹)">
             <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-400">Earnings</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Labeled label="Basic" error={errors.base_salary}>
+              <Labeled label="Basic" required error={errors.base_salary}>
                 <TextInput placeholder="0.00" value={form.base_salary} onChange={(e) => set("base_salary", e.target.value)} />
               </Labeled>
               <Labeled label="HRA">
@@ -304,19 +324,19 @@ export function AddTeacherPage() {
 
           <Section icon={<CaseIcon className="h-5 w-5 text-brand" />} tint="bg-brand-light" title="Bank Account Details">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Labeled label="Account holder name">
+              <Labeled label="Account holder name" required error={errors.account_holder_name}>
                 <TextInput placeholder="e.g. Sarah Johnson" value={form.account_holder_name} onChange={(e) => set("account_holder_name", e.target.value)} />
               </Labeled>
-              <Labeled label="Account number" error={errors.account_number}>
+              <Labeled label="Account number" required error={errors.account_number}>
                 <TextInput inputMode="numeric" placeholder="e.g. 50100123456789" value={form.account_number} onChange={(e) => set("account_number", e.target.value.replace(/\D/g, ""))} />
               </Labeled>
-              <Labeled label="Bank name">
+              <Labeled label="Bank name" required error={errors.bank_name}>
                 <TextInput placeholder="e.g. HDFC Bank" value={form.bank_name} onChange={(e) => set("bank_name", e.target.value)} />
               </Labeled>
               <Labeled label="Branch">
                 <TextInput placeholder="e.g. MG Road, Bengaluru" value={form.branch} onChange={(e) => set("branch", e.target.value)} />
               </Labeled>
-              <Labeled label="IFSC code" full error={errors.ifsc_code}>
+              <Labeled label="IFSC code" full required error={errors.ifsc_code}>
                 <TextInput maxLength={11} placeholder="e.g. HDFC0001234" value={form.ifsc_code} onChange={(e) => set("ifsc_code", e.target.value.toUpperCase().slice(0, 11))} />
               </Labeled>
             </div>

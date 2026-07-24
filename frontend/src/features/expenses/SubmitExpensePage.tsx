@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { expenses } from "@/api/resources";
+import { DatePicker } from "@/components/DatePicker";
 import { Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
 import { log } from "@/lib/logger";
 
@@ -10,9 +11,19 @@ const CATEGORIES = ["salaries", "utilities", "maintenance", "supplies", "transpo
 const METHODS = ["Cash", "Card", "Bank Transfer", "UPI", "Cheque", "Company Card"];
 const COST_CENTERS = ["General", "Academics", "Sports", "Events", "Maintenance", "IT", "Administration"];
 
+// Method-specific detail captured in `payment_reference`. Methods absent here
+// (e.g. Cash) need no extra input.
+const METHOD_DETAIL: Record<string, { label: string; placeholder: string; digitsOnly?: number }> = {
+  Card: { label: "Card last 4 digits", placeholder: "e.g. 4242", digitsOnly: 4 },
+  "Company Card": { label: "Card last 4 digits", placeholder: "e.g. 4242", digitsOnly: 4 },
+  Cheque: { label: "Cheque number", placeholder: "e.g. 000123" },
+  UPI: { label: "UPI ID", placeholder: "e.g. name@okbank" },
+  "Bank Transfer": { label: "Voucher / UTR number", placeholder: "e.g. UTR0001234" },
+};
+
 const EMPTY = {
   title: "", category: "", expense_date: "",
-  amount: "0.00", currency: "INR", payment_method: "", reimbursable: false,
+  amount: "0.00", currency: "INR", payment_method: "", payment_reference: "", reimbursable: false,
   vendor: "", project_cost_center: "", notes: "",
 };
 
@@ -62,6 +73,12 @@ export function SubmitExpensePage() {
   function validate(): boolean {
     const next: Record<string, string> = {};
     required.forEach((k) => !form[k] && (next[k] = "Required"));
+    const detail = METHOD_DETAIL[form.payment_method];
+    if (detail) {
+      if (!form.payment_reference) next.payment_reference = "Required";
+      else if (detail.digitsOnly && form.payment_reference.length !== detail.digitsOnly)
+        next.payment_reference = `Enter ${detail.digitsOnly} digits`;
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -113,7 +130,13 @@ export function SubmitExpensePage() {
                 </Select>
               </Labeled>
               <Labeled label="Expense date" required error={errors.expense_date}>
-                <TextInput type="date" value={form.expense_date} onChange={(e) => set("expense_date", e.target.value)} />
+                <DatePicker
+                  value={form.expense_date}
+                  onChange={(v) => set("expense_date", v)}
+                  minYear={2015}
+                  maxYear={new Date().getFullYear()}
+                  placeholder="Select expense date"
+                />
               </Labeled>
             </div>
           </Section>
@@ -129,12 +152,35 @@ export function SubmitExpensePage() {
                 </Select>
               </Labeled>
               <Labeled label="Payment method">
-                <Select value={form.payment_method} onChange={(e) => set("payment_method", e.target.value)}>
+                <Select
+                  value={form.payment_method}
+                  onChange={(e) => {
+                    // Switching method invalidates any previously entered detail.
+                    setForm((f) => ({ ...f, payment_method: e.target.value, payment_reference: "" }));
+                  }}
+                >
                   <option value="">Select method</option>
                   {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                 </Select>
               </Labeled>
             </div>
+            {METHOD_DETAIL[form.payment_method] && (
+              <div className="mt-5 sm:max-w-xs">
+                <Labeled label={METHOD_DETAIL[form.payment_method].label} error={errors.payment_reference}>
+                  <TextInput
+                    placeholder={METHOD_DETAIL[form.payment_method].placeholder}
+                    value={form.payment_reference}
+                    inputMode={METHOD_DETAIL[form.payment_method].digitsOnly ? "numeric" : undefined}
+                    maxLength={METHOD_DETAIL[form.payment_method].digitsOnly}
+                    onChange={(e) => {
+                      const cfg = METHOD_DETAIL[form.payment_method];
+                      const v = cfg.digitsOnly ? e.target.value.replace(/\D/g, "").slice(0, cfg.digitsOnly) : e.target.value;
+                      set("payment_reference", v);
+                    }}
+                  />
+                </Labeled>
+              </div>
+            )}
             <label className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
               <span>
                 <span className="block text-sm font-medium text-slate-800">Reimbursable Expense</span>

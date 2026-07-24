@@ -138,19 +138,39 @@ def create_backup(*, label: str = "", actor=None) -> BackupRun:
     except subprocess.CalledProcessError as exc:
         raise ServiceError(f"pg_dump failed: {exc.stderr.decode()[:200]}") from exc
 
+    # Ship the dump to object storage so it survives the container / host. The
+    # local copy is kept for the verify drill that runs right after.
+    storage_key = f"backups/_cluster/{os.path.basename(path)}"
+    try:
+        from django.core.files import File
+        from django.core.files.storage import default_storage
+
+        with open(path, "rb") as f:
+            default_storage.save(storage_key, File(f))
+    except Exception as exc:  # storage outage must not lose the local backup
+        log.warning(
+            "backup upload to object storage failed label=%s error=%s",
+            label,
+            exc,
+            **ctx(user=getattr(actor, "id", "-"), action="create_backup"),
+        )
+        storage_key = ""
+
     run = BackupRun.objects.create(
         label=label,
         path=path,
+        storage_key=storage_key,
         sha256=_sha256(path),
         size_bytes=os.path.getsize(path),
         table_count_total=sum(counts.values()),
         table_counts=counts,
     )
     log.info(
-        "backup created label=%s size=%s tables=%s",
+        "backup created label=%s size=%s tables=%s stored=%s",
         label,
         run.size_bytes,
         len(counts),
+        bool(storage_key),
         **ctx(user=getattr(actor, "id", "-"), entity=run.id, action="create_backup"),
     )
     return run

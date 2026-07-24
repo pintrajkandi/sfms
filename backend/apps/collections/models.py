@@ -90,6 +90,9 @@ class Payment(TimeStampedModel):
     amount = money_field()
     currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     method = models.CharField(max_length=16, choices=PaymentMethod.choices)
+    # Auto-generated, purely numeric receipt/transaction number (assigned by the
+    # service on record — see collections.services.record_payment). Unique per tenant.
+    receipt_number = models.CharField(max_length=20, blank=True, db_index=True)
     reference = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.RECORDED)
     paid_at = models.DateTimeField()

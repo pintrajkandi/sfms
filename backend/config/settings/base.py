@@ -65,7 +65,6 @@ TENANT_APPS = [
     "apps.hostel",
     "apps.documents",
     "apps.notifications",
-    "apps.portal",
     "apps.privacy",
 ]
 
@@ -160,25 +159,53 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True
 
 # --------------------------------------------------------------------------- #
-# Object storage — MinIO (S3-compatible) via django-storages.
+# Object storage — any S3-compatible provider via django-storages.
+#
+# Defaults target the local MinIO dev container. To ship uploads + backups to a
+# hosted S3-compatible store (e.g. Bunny.net S3), set the STORAGE_* env vars —
+# no code change needed. STORAGE_* falls back to the legacy MINIO_* names so
+# existing dev/CI envs keep working.
 # --------------------------------------------------------------------------- #
+STORAGE_ACCESS_KEY = env(
+    "STORAGE_ACCESS_KEY", default=env("MINIO_ACCESS_KEY", default="minioadmin")
+)
+STORAGE_SECRET_KEY = env(
+    "STORAGE_SECRET_KEY", default=env("MINIO_SECRET_KEY", default="minioadmin")
+)
+STORAGE_BUCKET = env("STORAGE_BUCKET", default=env("MINIO_BUCKET", default="sfms-media"))
+STORAGE_ENDPOINT = env(
+    "STORAGE_ENDPOINT", default=env("MINIO_ENDPOINT", default="http://minio:9000")
+)
+STORAGE_REGION = env("STORAGE_REGION", default=env("MINIO_REGION", default="us-east-1"))
+# "path" for MinIO; hosted providers (incl. Bunny.net S3) usually want "virtual".
+STORAGE_ADDRESSING_STYLE = env("STORAGE_ADDRESSING_STYLE", default="path")
+STORAGE_PUBLIC_DOMAIN = env(
+    "STORAGE_PUBLIC_DOMAIN",
+    default=env("MINIO_PUBLIC_DOMAIN", default="localhost:9000/sfms-media"),
+)
+STORAGE_URL_PROTOCOL = env("STORAGE_URL_PROTOCOL", default="http:")
+# Public (unsigned) URLs for MinIO's anonymous-read bucket; flip to True to sign.
+STORAGE_QUERYSTRING_AUTH = env.bool("STORAGE_QUERYSTRING_AUTH", default=False)
+
+_STORAGE_OPTIONS = {
+    "access_key": STORAGE_ACCESS_KEY,
+    "secret_key": STORAGE_SECRET_KEY,
+    "bucket_name": STORAGE_BUCKET,
+    "endpoint_url": STORAGE_ENDPOINT,
+    "region_name": STORAGE_REGION,
+    "addressing_style": STORAGE_ADDRESSING_STYLE,
+    "url_protocol": STORAGE_URL_PROTOCOL,
+    "querystring_auth": STORAGE_QUERYSTRING_AUTH,
+    "file_overwrite": False,
+}
+# custom_domain only makes sense for unsigned public URLs; omit it when signing.
+if STORAGE_PUBLIC_DOMAIN and not STORAGE_QUERYSTRING_AUTH:
+    _STORAGE_OPTIONS["custom_domain"] = STORAGE_PUBLIC_DOMAIN
+
 STORAGES = {
     "default": {
         "BACKEND": "storages.backends.s3.S3Storage",
-        "OPTIONS": {
-            "access_key": env("MINIO_ACCESS_KEY", default="minioadmin"),
-            "secret_key": env("MINIO_SECRET_KEY", default="minioadmin"),
-            "bucket_name": env("MINIO_BUCKET", default="sfms-media"),
-            "endpoint_url": env("MINIO_ENDPOINT", default="http://minio:9000"),
-            "region_name": env("MINIO_REGION", default="us-east-1"),
-            "addressing_style": "path",
-            # Server talks to minio:9000; browsers get a public host they can reach.
-            # (Bucket is anonymous-read, so unsigned URLs are fine.)
-            "custom_domain": env("MINIO_PUBLIC_DOMAIN", default="localhost:9000/sfms-media"),
-            "url_protocol": "http:",
-            "querystring_auth": False,
-            "file_overwrite": False,
-        },
+        "OPTIONS": _STORAGE_OPTIONS,
     },
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
@@ -427,12 +454,6 @@ PAYROLL_PF_WAGE_CEILING = env("PAYROLL_PF_WAGE_CEILING", default="15000")
 PAYROLL_ESI_EMPLOYEE_RATE = env("PAYROLL_ESI_EMPLOYEE_RATE", default="0.0075")
 PAYROLL_ESI_WAGE_THRESHOLD = env("PAYROLL_ESI_WAGE_THRESHOLD", default="21000")
 PAYROLL_PROFESSIONAL_TAX = env("PAYROLL_PROFESSIONAL_TAX", default="200")
-
-# --------------------------------------------------------------------------- #
-# Parent portal — OTP + short-lived signed access token (no parent User model).
-# --------------------------------------------------------------------------- #
-PARENT_OTP_TTL = env.int("PARENT_OTP_TTL", default=300)  # seconds
-PARENT_TOKEN_TTL = env.int("PARENT_TOKEN_TTL", default=1800)  # seconds
 
 # Base domain schools sign in from: <slug>.<TENANT_BASE_DOMAIN>.
 # Dev uses ".localhost" (browsers resolve *.localhost to 127.0.0.1); prod uses feeledger.app.

@@ -27,7 +27,10 @@ export interface Student {
   status: string;
   previous_school: string;
   notes: string;
-  parent?: number | null;
+  school_fee: string;
+  tuition_fee: string;
+  transport_fee: string;
+  other_fee: string;
 }
 
 export interface Section {
@@ -81,6 +84,7 @@ export interface Payment {
   amount: string;
   currency: string;
   method: string;
+  receipt_number: string;
   reference: string;
   status: string;
   paid_at: string;
@@ -150,6 +154,13 @@ export interface FeePlan {
 }
 
 export interface StudentFeeSummary {
+  annual_fee: string;
+  fee_structure: {
+    school_fee: string;
+    tuition_fee: string;
+    transport_fee: string;
+    other_fee: string;
+  };
   total_fee: string;
   paid: string;
   outstanding: string;
@@ -351,6 +362,7 @@ export interface Expense {
   amount: string;
   currency: string;
   payment_method: string;
+  payment_reference: string;
   reimbursable: boolean;
   vendor: string;
   project_cost_center: string;
@@ -412,64 +424,5 @@ export interface RazorpayVerifyPayload {
 export interface RazorpayVerifyResult {
   status: string;
   payment_id: number;
-  invoice_status: string;
-}
-
-/* ---- Parent portal (public, X-Parent-Token authed) ---- */
-
-export interface ParentVerifyResult {
-  token: string;
-  student_name: string;
-  student_id: string;
-}
-
-export interface ParentInstallment {
-  sequence: number;
-  due_date: string | null;
-  amount: string;
-  amount_paid: string;
-  status: string;
-}
-
-export interface ParentInvoice {
-  id: number;
-  invoice_number: string;
-  total: string;
-  amount_paid: string;
-  balance: string;
-  status: InvoiceStatus;
-  due_date: string | null;
-  installments?: ParentInstallment[];
-}
-
-export interface ParentMandate {
-  id: number;
-  status: string;
-  max_amount: string;
-  currency: string;
-  auth_url: string;
-  next_charge_on: string | null;
-}
-
-export interface ParentReceipt {
-  id: number;
-  invoice_number: string;
-  amount: string;
-  currency: string;
-  method: string;
-  paid_at: string;
-  signed: boolean;
-  valid: boolean;
-}
-
-export interface ParentPayOrder {
-  order_id: string;
-  amount: number; // paise (minor units)
-  currency: string;
-  key_id: string;
-}
-
-export interface ParentPayVerifyResult {
-  status: string;
   invoice_status: string;
 }

@@ -30,7 +30,6 @@ _TENANT_APP_LABELS = {
     "inventory",
     "finance",
     "notifications",
-    "portal",
     "privacy",
 }
 

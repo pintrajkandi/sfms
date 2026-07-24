@@ -4,7 +4,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.core.services import InvalidTransition
+from apps.core.services import InvalidTransition, ServiceError
 from apps.staff.models import PayoutStatus, Teacher
 from apps.staff.services import compute_net, create_payout, transition_payout
 
@@ -41,3 +41,19 @@ def test_processed_is_terminal(tenant_ctx):
     transition_payout(payout=payout, to_status=PayoutStatus.PROCESSED)
     with pytest.raises(InvalidTransition):
         transition_payout(payout=payout, to_status=PayoutStatus.REJECTED)
+
+
+def test_duplicate_pay_period_rejected(tenant_ctx):
+    teacher = _teacher()
+    create_payout(teacher=teacher, base_amount="5000", pay_period="2024-07")
+    with pytest.raises(ServiceError):
+        create_payout(teacher=teacher, base_amount="5000", pay_period="2024-07")
+
+
+def test_rejected_period_can_be_resubmitted(tenant_ctx):
+    teacher = _teacher()
+    first = create_payout(teacher=teacher, base_amount="5000", pay_period="2024-07")
+    transition_payout(payout=first, to_status=PayoutStatus.REJECTED)
+    # A fresh payout for the same month is allowed once the prior one is rejected.
+    again = create_payout(teacher=teacher, base_amount="5000", pay_period="2024-07")
+    assert again.status == PayoutStatus.SUBMITTED

@@ -192,13 +192,18 @@ export function InvoiceDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-lg">⚡</span>
+                {school?.logo ? (
+                  <img src={school.logo} alt="School logo" className="h-11 w-11 rounded-xl bg-white/90 object-contain p-1" />
+                ) : (
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 text-lg">🏫</span>
+                )}
                 <span className="text-2xl font-bold">{school?.name ?? "Fee Ledger"}</span>
               </div>
-              <p className="mt-3 text-sm font-medium text-white/90">School Fee Management System</p>
-              <p className="text-sm text-white/70">{school?.street_address || "—"}</p>
+              <p className="mt-3 text-sm font-medium text-white/90">
+                {[school?.street_address, school?.city, school?.state_province].filter(Boolean).join(", ") || "School Fee Management System"}
+              </p>
               <p className="text-sm text-white/70">
-                {school?.official_email || "—"} · {school?.primary_phone || "—"}
+                {[school?.primary_phone, school?.official_email].filter(Boolean).join(" · ") || "—"}
               </p>
             </div>
             <div className="text-right">

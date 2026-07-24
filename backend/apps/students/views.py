@@ -7,8 +7,8 @@ from rest_framework.response import Response
 from apps.collections.selectors import student_fee_summary
 from apps.core.export import export_response
 
-from .models import Parent, Student
-from .serializers import ParentSerializer, StudentSerializer
+from .models import Student
+from .serializers import StudentSerializer
 from .services import (
     bulk_import_students,
     create_student,
@@ -108,17 +108,3 @@ class StudentViewSet(viewsets.ModelViewSet):
             for s in self.get_queryset()
         ]
         return export_response(fmt, "students", _EXPORT_HEADERS, rows)
-
-
-class ParentViewSet(viewsets.ModelViewSet):
-    """Parent/guardian records; a parent can have several children (siblings)."""
-
-    serializer_class = ParentSerializer
-    rbac_resource = "parents"
-
-    def get_queryset(self):
-        qs = Parent.objects.prefetch_related("children")
-        term = (self.request.query_params.get("search") or "").strip()
-        if term:
-            qs = qs.filter(Q(name__icontains=term) | Q(phone__icontains=term))
-        return qs

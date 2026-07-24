@@ -16,11 +16,29 @@ from django.db import transaction
 from apps.core.audit import record_audit
 from apps.core.logging import ctx, get_logger
 from apps.core.models import ZERO
-from apps.core.services import InvalidTransition
+from apps.core.services import InvalidTransition, ServiceError
 
 from .models import Payout, PayoutApproval, PayoutStatus
 
 log = get_logger("staff")
+
+
+def _ensure_period_not_taken(*, teacher, pay_period: str, pay_type: str) -> None:
+    """Block a duplicate payout for the same teacher + month + kind.
+
+    A rejected payout does not count, so a corrected one can be re-submitted for
+    the same period.
+    """
+    clash = (
+        Payout.objects.filter(teacher=teacher, pay_period=pay_period, pay_type=pay_type)
+        .exclude(status=PayoutStatus.REJECTED)
+        .exists()
+    )
+    if clash:
+        raise ServiceError(
+            f"A {pay_type} payout for {teacher.full_name} already exists for {pay_period}."
+        )
+
 
 # Allowed transitions. The multi-stage HOD/Finance approval was removed — a
 # submitted payout is either paid (processed) or rejected in one step. Legacy
@@ -156,6 +174,7 @@ def run_payroll(
     )
     net = _q(gross - stat["total_deductions"])
 
+    _ensure_period_not_taken(teacher=teacher, pay_period=pay_period, pay_type=Payout.PayType.SALARY)
     payout = Payout.objects.create(
         teacher=teacher,
         pay_type=Payout.PayType.SALARY,
@@ -244,6 +263,7 @@ def create_payout(
     deduction_reason="",
     actor=None,
 ) -> Payout:
+    _ensure_period_not_taken(teacher=teacher, pay_period=pay_period, pay_type=pay_type)
     payout = Payout.objects.create(
         teacher=teacher,
         pay_type=pay_type,

@@ -5,6 +5,8 @@
  * container's stdout, so the full activity trail shows up in `docker compose logs`
  * — NOT the browser console. Never log secrets or full PII.
  */
+import { captureError } from "./sentry";
+
 type Level = "info" | "warn" | "error";
 
 interface Context {
@@ -55,6 +57,8 @@ function emit(level: Level, message: string, ctx?: Context): void {
     ts: new Date().toISOString(),
     ...ctx,
   });
+  // Forward errors to Sentry too (no-op unless a DSN is configured — §10).
+  if (level === "error") captureError(message, ctx);
   if (flushTimer == null) {
     flushTimer = setTimeout(() => {
       flushTimer = null;

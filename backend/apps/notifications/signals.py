@@ -96,7 +96,7 @@ def send_invoice_generated(sender, instance, created, **kwargs) -> None:
             f"Dear {guardian}, invoice {instance.invoice_number} for "
             f"{student.full_name} has been generated. "
             f"Amount: {instance.total} {instance.currency}, due {due}. "
-            f"Log in to the parent portal to pay."
+            f"Please pay at the school office by the due date."
         )
         notify(phone, message)
         log.info(

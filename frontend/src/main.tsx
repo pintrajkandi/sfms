@@ -4,10 +4,14 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import "sweetalert2/dist/sweetalert2.min.css";
 import "./index.css";
 import { AUTH0_REDIRECT_PATH, auth0Config, auth0Enabled } from "./lib/auth0";
+import { initSentry } from "./lib/sentry";
 import { InstallPrompt } from "./pwa/InstallPrompt";
 import { router } from "./routes/router";
+
+initSentry();
 
 const queryClient = new QueryClient();
 

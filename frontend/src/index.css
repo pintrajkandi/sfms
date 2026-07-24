@@ -5,3 +5,19 @@
 body {
   @apply bg-slate-50 text-slate-800 antialiased;
 }
+
+/* Print: force background colours/gradients to render (browsers drop them by
+ * default), so branded letterheads — logo band, coloured badges, table
+ * headers — appear on the printed receipt/payslip instead of white-on-white. */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    @apply bg-white;
+  }
+  @page {
+    margin: 12mm;
+  }
+}

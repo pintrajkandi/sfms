@@ -20,9 +20,21 @@ def _q(v: Decimal) -> Decimal:
 def student_fee_summary(student) -> dict:
     """Fee breakdown + payment progress + history for the student detail page."""
     invoices = student.invoices.exclude(status=InvoiceStatus.CANCELLED)
-    total = invoices.aggregate(s=Sum("total"))["s"] or ZERO
+    inv_total = invoices.aggregate(s=Sum("total"))["s"] or ZERO
     paid = invoices.aggregate(s=Sum("amount_paid"))["s"] or ZERO
+
+    # Planned annual fee assigned on the student record. When set, it is the
+    # authoritative billable total; otherwise fall back to issued invoices.
+    annual_fee = _q(
+        (student.school_fee or ZERO)
+        + (student.tuition_fee or ZERO)
+        + (student.transport_fee or ZERO)
+        + (student.other_fee or ZERO)
+    )
+    total = annual_fee if annual_fee > ZERO else inv_total
     outstanding = total - paid
+    if outstanding < ZERO:
+        outstanding = ZERO
     progress = float((paid / total) * 100) if total > ZERO else 0.0
 
     invoice_rows = [
@@ -84,6 +96,13 @@ def student_fee_summary(student) -> dict:
         .prefetch_related("invoice__lines__fee_type")[:50]
     ]
     return {
+        "annual_fee": str(annual_fee),
+        "fee_structure": {
+            "school_fee": str(_q(student.school_fee or ZERO)),
+            "tuition_fee": str(_q(student.tuition_fee or ZERO)),
+            "transport_fee": str(_q(student.transport_fee or ZERO)),
+            "other_fee": str(_q(student.other_fee or ZERO)),
+        },
         "total_fee": str(_q(total)),
         "paid": str(_q(paid)),
         "outstanding": str(_q(outstanding)),

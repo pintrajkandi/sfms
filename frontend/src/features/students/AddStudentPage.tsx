@@ -5,6 +5,7 @@ import { ApiError } from "@/api/client";
 import { classes, students } from "@/api/resources";
 import { Button, Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
 import { DatePicker } from "@/components/DatePicker";
+import { formatMoney } from "@/lib/money";
 import { log } from "@/lib/logger";
 
 const DRAFT_KEY = "sfms:student-draft";
@@ -30,6 +31,10 @@ const EMPTY = {
   status: "active",
   previous_school: "",
   notes: "",
+  school_fee: "0.00",
+  tuition_fee: "0.00",
+  transport_fee: "0.00",
+  other_fee: "0.00",
 };
 type Form = typeof EMPTY;
 
@@ -97,6 +102,8 @@ export function AddStudentPage() {
           guardian_phone: s.guardian_phone, guardian_email: s.guardian_email,
           grade: s.grade, section: s.section, enrollment_date: s.enrollment_date ?? "",
           status: s.status, previous_school: s.previous_school, notes: s.notes,
+          school_fee: s.school_fee ?? "0.00", tuition_fee: s.tuition_fee ?? "0.00",
+          transport_fee: s.transport_fee ?? "0.00", other_fee: s.other_fee ?? "0.00",
         });
         if (s.photo) setPhotoPreview(s.photo);
       });
@@ -286,6 +293,31 @@ export function AddStudentPage() {
           <Labeled label="Notes" full>
             <TextArea value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Any special notes or additional information…" />
           </Labeled>
+        </div>
+      </FormSection>
+
+      <FormSection icon={<span className="text-lg font-bold text-emerald-600">₹</span>} tint="bg-emerald-50" title="Fee Structure (annual, ₹)" subtitle="Assigned fees — used to track paid vs outstanding during collection">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <Labeled label="School fee">
+            <TextInput inputMode="decimal" placeholder="0.00" value={form.school_fee} onChange={(e) => set("school_fee", e.target.value)} />
+          </Labeled>
+          <Labeled label="Tuition fee">
+            <TextInput inputMode="decimal" placeholder="0.00" value={form.tuition_fee} onChange={(e) => set("tuition_fee", e.target.value)} />
+          </Labeled>
+          <Labeled label="Transport fee">
+            <TextInput inputMode="decimal" placeholder="0.00" value={form.transport_fee} onChange={(e) => set("transport_fee", e.target.value)} />
+          </Labeled>
+          <Labeled label="Other fee">
+            <TextInput inputMode="decimal" placeholder="0.00" value={form.other_fee} onChange={(e) => set("other_fee", e.target.value)} />
+          </Labeled>
+        </div>
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm">
+          <span className="font-medium text-slate-600">Total annual fee</span>
+          <span className="text-lg font-bold text-emerald-600">
+            {formatMoney(
+              (Number(form.school_fee || 0) + Number(form.tuition_fee || 0) + Number(form.transport_fee || 0) + Number(form.other_fee || 0)).toFixed(2),
+            )}
+          </span>
         </div>
       </FormSection>
 

@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 
-from .models import Parent, Student
+from .models import Student
 
 
 def _validate_phone(value: str) -> str:
@@ -29,27 +29,3 @@ class StudentSerializer(serializers.ModelSerializer):
 
     def validate_guardian_phone(self, value):
         return _validate_phone(value)
-
-
-class ParentSerializer(serializers.ModelSerializer):
-    children = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Parent
-        fields = (
-            "id",
-            "name",
-            "relation",
-            "phone",
-            "email",
-            "occupation",
-            "address",
-            "is_active",
-            "children",
-        )
-
-    def get_children(self, obj) -> list:
-        return [
-            {"id": c.id, "name": c.full_name, "student_id": c.student_id, "grade": c.grade}
-            for c in obj.children.all()
-        ]

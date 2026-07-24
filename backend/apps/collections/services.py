@@ -38,6 +38,11 @@ def _quantize(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"))
 
 
+# Numeric receipt numbers start here so they read like real receipt numbers
+# (e.g. 100001) rather than 1, 2, 3.
+RECEIPT_NUMBER_SEED = 100000
+
+
 def next_invoice_number(prefix: str = "INV") -> str:
     year = timezone.now().year
     stem = f"{prefix}-{year}-"
@@ -222,6 +227,11 @@ def record_payment(
     except IntegrityError:
         # Lost the race to a concurrent identical submit — return the winner.
         return Payment.objects.get(idempotency_key=idempotency_key)
+
+    # Auto-generate a purely numeric receipt number. Derived from the payment's
+    # own per-tenant autoincrement id, so it is unique and race-free by design.
+    payment.receipt_number = str(RECEIPT_NUMBER_SEED + payment.id)
+    payment.save(update_fields=["receipt_number"])
 
     invoice.amount_paid = _quantize(invoice.amount_paid + amount)
     _sync_status(invoice)

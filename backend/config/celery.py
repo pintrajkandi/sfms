@@ -3,6 +3,7 @@
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
 
@@ -29,15 +30,17 @@ app.conf.beat_schedule = {
         "schedule": 60 * 60 * 24.0,  # once daily
     },
     # Nightly verified DB backup + restore drill (backups are verified, not assumed).
+    # Fixed clock time so ops know exactly when the maintenance window runs.
     "nightly-backup": {
         "task": "apps.tenants.tasks.nightly_backup",
-        "schedule": 60 * 60 * 24.0,  # once daily
+        "schedule": crontab(hour=2, minute=0),  # 02:00 daily (whole-cluster)
     },
     # Daily per-school schema backup to object storage (downloadable/restorable
-    # from the platform admin).
+    # from the platform admin). Staggered after the whole-cluster job so they
+    # don't contend for the DB at the same instant.
     "nightly-school-backups": {
         "task": "apps.tenants.tasks.nightly_school_backups",
-        "schedule": 60 * 60 * 24.0,  # once daily
+        "schedule": crontab(hour=3, minute=0),  # 03:00 daily (per-school)
     },
 }
 

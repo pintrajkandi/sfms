@@ -133,25 +133,6 @@ export const finance = {
   dashboard: () => api.get<FinanceDashboard>("/finance/dashboard/"),
 };
 
-export interface Parent {
-  id: number;
-  name: string;
-  relation: string;
-  phone: string;
-  email: string;
-  occupation: string;
-  address: string;
-  is_active: boolean;
-  children: { id: number; name: string; student_id: string; grade: string }[];
-}
-
-export const parents = {
-  list: (term = "") => list<Parent>(`/parents/${term ? `?search=${encodeURIComponent(term)}` : ""}`),
-  create: (body: Partial<Parent>) => api.post<Parent>("/parents/", body),
-  update: (id: number, body: Partial<Parent>) => api.patch<Parent>(`/parents/${id}/`, body),
-  remove: (id: number) => api.delete<void>(`/parents/${id}/`),
-};
-
 export interface PlatformMetrics {
   active_schools: number;
   trial_schools: number;
@@ -527,7 +508,22 @@ export const payouts = {
   }) => api.post<Payout>("/payouts/", body),
   transition: (id: number, to_status: string, note = "") =>
     api.post<Payout>(`/payouts/${id}/transition/`, { to_status, note }),
+  payslip: (id: number | string) => api.get<PayslipData>(`/payouts/${id}/payslip/`),
 };
+
+export interface PayslipData {
+  payout_id: number;
+  employee_id: string;
+  employee_name: string;
+  pay_period: string;
+  currency: string;
+  status: string;
+  earnings: { label: string; amount: string }[];
+  deductions: { label: string; amount: string }[];
+  gross_amount: string;
+  total_deductions: string;
+  net_amount: string;
+}
 
 export const expenses = {
   create: (body: Partial<Expense>) => api.post<Expense>("/expenses/", body),

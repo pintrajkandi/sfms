@@ -1,7 +1,7 @@
 """Aggregate tenant-scoped API router (mounted at /api/v1/)."""
 
 from django.http import JsonResponse
-from django.urls import include, path
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.api import (
@@ -88,7 +88,7 @@ from apps.schools.views import (
     SupportTicketViewSet,
 )
 from apps.staff.views import PayoutViewSet, TeacherViewSet
-from apps.students.views import ParentViewSet, StudentViewSet
+from apps.students.views import StudentViewSet
 from apps.transport.views import (
     RouteProfitabilityView,
     TransportExpenseViewSet,
@@ -98,7 +98,6 @@ from apps.transport.views import (
 
 router = DefaultRouter()
 router.register("students", StudentViewSet, basename="student")
-router.register("parents", ParentViewSet, basename="parent")
 router.register("fee-types", FeeTypeViewSet, basename="fee-type")
 router.register("fee-categories", FeeCategoryViewSet, basename="fee-category")
 router.register("fee-plans", FeePlanViewSet, basename="fee-plan")
@@ -205,8 +204,6 @@ urlpatterns = [
     ),
     path("payments/razorpay/order/", RazorpayOrderView.as_view(), name="razorpay-order"),
     path("payments/razorpay/verify/", RazorpayVerifyView.as_view(), name="razorpay-verify"),
-    # Parent portal (OTP-authenticated, no staff session) — filled in by apps.portal.
-    path("portal/", include("apps.portal.urls")),
     path(
         "privacy/students/<int:pk>/",
         StudentPrivacyView.as_view(),

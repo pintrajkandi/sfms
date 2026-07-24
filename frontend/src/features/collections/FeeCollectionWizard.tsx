@@ -10,10 +10,9 @@ import { formatMoney } from "@/lib/money";
 const STEPS = ["Student Info", "Fee Details", "Payment"];
 
 const METHODS = [
-  { value: "card", label: "Credit Card", icon: "💳" },
-  { value: "bank_transfer", label: "Bank Transfer", icon: "🏦" },
-  { value: "paypal", label: "PayPal", icon: "🅿️" },
   { value: "cash", label: "Cash", icon: "💵" },
+  { value: "bank_transfer", label: "Bank Transfer", icon: "🏦" },
+  { value: "upi", label: "UPI", icon: "📲" },
 ];
 
 interface Line {
@@ -37,7 +36,7 @@ export function FeeCollectionWizard() {
   const [lines, setLines] = useState<Line[]>([]);
   const [addFeeId, setAddFeeId] = useState("");
 
-  const [method, setMethod] = useState("card");
+  const [method, setMethod] = useState("cash");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [txn, setTxn] = useState("");
@@ -312,7 +311,7 @@ export function FeeCollectionWizard() {
         <div className="space-y-6">
           <Card icon="💳" title="Payment Information" subtitle="Select payment method and confirm amount">
             <label className="mb-2 block text-sm font-semibold text-slate-700">Payment method *</label>
-            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mb-5 grid grid-cols-3 gap-3">
               {METHODS.map((m) => (
                 <button
                   key={m.value}
@@ -327,6 +326,10 @@ export function FeeCollectionWizard() {
               ))}
             </div>
 
+            <p className="mb-5 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              🧾 A numeric receipt number is generated automatically when the payment is confirmed.
+            </p>
+
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Labeled label="Amount to pay" required>
                 <TextInput value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -334,8 +337,13 @@ export function FeeCollectionWizard() {
               <Labeled label="Payment date" required>
                 <TextInput type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
               </Labeled>
-              <Labeled label="Transaction / receipt no.">
-                <TextInput placeholder="e.g. TXN-20240512-001" value={txn} onChange={(e) => setTxn(e.target.value)} />
+              <Labeled label="Reference / UTR no. (optional)">
+                <TextInput
+                  placeholder={method === "cash" ? "—" : "Bank / UPI reference"}
+                  value={txn}
+                  onChange={(e) => setTxn(e.target.value)}
+                  disabled={method === "cash"}
+                />
               </Labeled>
               <Labeled label="Collected by">
                 <TextInput placeholder="Staff name" value={collectedBy} onChange={(e) => setCollectedBy(e.target.value)} />

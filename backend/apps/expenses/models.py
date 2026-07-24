@@ -23,6 +23,8 @@ class Expense(TimeStampedModel):
     amount = money_field()
     currency = models.CharField(max_length=3, choices=Currency.choices, default="INR")
     payment_method = models.CharField(max_length=32, blank=True)
+    # Method-specific detail: card last-4 / cheque no. / UPI id / bank voucher no.
+    payment_reference = models.CharField(max_length=64, blank=True)
     reimbursable = models.BooleanField(default=False)
 
     vendor = models.CharField(max_length=200, blank=True)
