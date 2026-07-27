@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
-import { support } from "@/api/resources";
+import { support, type WhatsAppSupport } from "@/api/resources";
 import { Card } from "@/components/Card";
 import { Button, Labeled, PageHeader, Select, TextArea, TextInput, Toast } from "@/components/form";
+import { alertError } from "@/lib/alerts";
 import { formatDate } from "@/lib/dates";
 
 const CATEGORIES = [
@@ -39,11 +40,22 @@ export function SupportPage() {
     onError: (e) => setToast({ msg: e instanceof ApiError ? e.detail : "Could not send your request.", tone: "error" }),
   });
 
+  const [wa, setWa] = useState<WhatsAppSupport | null>(null);
+  const whatsapp = useMutation({
+    mutationFn: () => support.whatsapp(form.subject),
+    onSuccess: (d) => {
+      setWa(d);
+      if (d.configured && d.whatsapp_url) window.open(d.whatsapp_url, "_blank", "noopener");
+    },
+    onError: (e) =>
+      void alertError("Could not start WhatsApp support", e instanceof ApiError ? e.detail : "Please try again."),
+  });
+
   const canSubmit = form.subject.trim() && form.message.trim();
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Support" subtitle="Reach out to the Fee Ledger team for any issue or request" />
+      <PageHeader title="Support" subtitle="Reach out to the YukiCares team for any issue or request" />
       {toast && <Toast message={toast.msg} tone={toast.tone} />}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -82,7 +94,7 @@ export function SupportPage() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-light">✉️</span>
               <div>
                 <p className="font-medium text-slate-800">Email</p>
-                <a href="mailto:support@feeledger.app" className="text-brand hover:underline">support@feeledger.app</a>
+                <a href="mailto:support@yukicares.cloud" className="text-brand hover:underline">support@yukicares.cloud</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -92,6 +104,42 @@ export function SupportPage() {
                 <p className="text-slate-500">Usually within 1 business day</p>
               </div>
             </div>
+          </div>
+
+          {/* Verified WhatsApp support */}
+          <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🟢</span>
+              <p className="text-sm font-semibold text-slate-800">Chat on WhatsApp</p>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              We verify every request. Generate your secure code and we'll open WhatsApp with a
+              pre-filled message — just hit send.
+            </p>
+            <button
+              type="button"
+              className="mt-3 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={whatsapp.isPending}
+              onClick={() => whatsapp.mutate()}
+            >
+              {whatsapp.isPending ? "Preparing…" : "💬 Get my code & open WhatsApp"}
+            </button>
+
+            {wa && !wa.configured && (
+              <p className="mt-3 text-xs text-amber-700">
+                WhatsApp support isn't set up yet. Please email{" "}
+                <a className="font-semibold underline" href="mailto:support@yukicares.cloud">support@yukicares.cloud</a>.
+              </p>
+            )}
+            {wa && wa.configured && (
+              <div className="mt-3 rounded-lg border border-emerald-200 bg-white p-3 text-xs">
+                <p className="text-slate-500">Your verification code (share it with support):</p>
+                <p className="mt-1 font-mono text-lg font-bold tracking-wider text-emerald-700">{wa.code}</p>
+                <p className="mt-1 text-slate-400">Valid for 30 minutes. If WhatsApp didn't open,{" "}
+                  <a className="font-semibold text-emerald-700 underline" href={wa.whatsapp_url} target="_blank" rel="noreferrer">tap here</a>.
+                </p>
+              </div>
+            )}
           </div>
         </Card>
       </div>

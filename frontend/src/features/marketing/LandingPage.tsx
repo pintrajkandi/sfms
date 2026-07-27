@@ -4,12 +4,12 @@ import { Link } from "react-router-dom";
 /**
  * Public marketing home page (route: /welcome).
  *
- * Rebuilt to match the EduLedger design mockups: sticky nav, split hero with a
+ * Rebuilt to match the YukiCares design mockups: sticky nav, split hero with a
  * product preview, module grid, "why choose" split, testimonials, CTA band and
  * a full footer. Light-theme only, fully responsive. Brand name is a single
  * constant so it is trivial to rename.
  */
-const BRAND = "EduLedger";
+const BRAND = "YukiCares";
 
 // ---- data ---------------------------------------------------------------- //
 
@@ -46,7 +46,7 @@ const OUTSTANDING: { name: string; cls: string; due: string; date: string; statu
 ];
 
 const TESTIMONIALS = [
-  { quote: "EduLedger has completely transformed our fee collection process. It's easy to use, saves time and the reports are excellent.", who: "Principal", school: "Delhi Public School, Jaipur" },
+  { quote: "YukiCares has completely transformed our fee collection process. It's easy to use, saves time and the reports are excellent.", who: "Principal", school: "Delhi Public School, Jaipur" },
   { quote: "The accounting module is powerful yet simple. Our monthly closing is now 70% faster!", who: "Accountant", school: "Cambridge International School" },
   { quote: "Parents love the reminders and online updates. Fee defaults reduced by 60% in just 3 months.", who: "Administrator", school: "St. Mary's School, Lucknow" },
 ];
@@ -93,7 +93,8 @@ function NavBar() {
     { label: "Modules", to: "#modules" },
     { label: "Pricing", to: "#cta" },
     { label: "About Us", to: "#why" },
-    { label: "Resources", to: "#footer", caret: true },
+    { label: "Blog", to: "/blog" },
+    { label: "FAQ", to: "/faq" },
     { label: "Contact", to: "#footer" },
   ];
   return (
@@ -102,12 +103,18 @@ function NavBar() {
         <a href="#top"><Logo /></a>
 
         <nav className="hidden items-center gap-7 lg:flex">
-          {links.map((l) => (
-            <a key={l.label} href={l.to} className="flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-indigo-600">
-              {l.label}
-              {l.caret && <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>}
-            </a>
-          ))}
+          {links.map((l) =>
+            l.to.startsWith("/") ? (
+              <Link key={l.label} to={l.to} className="flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-indigo-600">
+                {l.label}
+              </Link>
+            ) : (
+              <a key={l.label} href={l.to} className="flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-indigo-600">
+                {l.label}
+                {l.caret && <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 9l6 6 6-6" /></svg>}
+              </a>
+            ),
+          )}
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
@@ -125,9 +132,13 @@ function NavBar() {
       {open && (
         <div className="border-t border-slate-100 bg-white px-6 py-4 lg:hidden">
           <div className="flex flex-col gap-3">
-            {links.map((l) => (
-              <a key={l.label} href={l.to} onClick={() => setOpen(false)} className="text-sm font-medium text-slate-600">{l.label}</a>
-            ))}
+            {links.map((l) =>
+              l.to.startsWith("/") ? (
+                <Link key={l.label} to={l.to} onClick={() => setOpen(false)} className="text-sm font-medium text-slate-600">{l.label}</Link>
+              ) : (
+                <a key={l.label} href={l.to} onClick={() => setOpen(false)} className="text-sm font-medium text-slate-600">{l.label}</a>
+              ),
+            )}
             <div className="mt-2 flex gap-3">
               <Link to="/login" className="flex-1 rounded-lg border border-slate-200 py-2 text-center text-sm font-semibold text-slate-700">Login</Link>
               <Link to="/signup" className="flex-1 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 py-2 text-center text-sm font-semibold text-white">Book a Demo</Link>
@@ -471,9 +482,9 @@ function Footer() {
         <div className="col-span-2 sm:col-span-3 lg:col-span-1">
           <p className="text-sm font-semibold text-slate-800">Get in Touch</p>
           <ul className="mt-4 space-y-2.5 text-sm text-slate-500">
-            <li className="flex items-center gap-2">📞 +91 98765 43210</li>
-            <li className="flex items-center gap-2">✉️ hello@eduledger.app</li>
-            <li className="flex items-center gap-2">📍 Bangalore, India</li>
+            <li className="flex items-center gap-2">🌐 yukicares.cloud</li>
+            <li className="flex items-center gap-2">✉️ support@yukicares.cloud</li>
+            <li className="flex items-center gap-2">📍 Shanthi Nagar, Sangareddy, Telangana 502001</li>
           </ul>
         </div>
       </div>

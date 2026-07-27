@@ -154,7 +154,7 @@ export function SignupScreen() {
               setSlugEdited(true);
               set("slug", slugify(e.target.value));
             }}
-            trailing={<span className="text-sm text-slate-500">.feeledger.app</span>}
+            trailing={<span className="text-sm text-slate-500">.yukicares.cloud</span>}
           />
         </Field>
 

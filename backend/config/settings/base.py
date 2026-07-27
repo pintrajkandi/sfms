@@ -44,6 +44,7 @@ SHARED_APPS = [
     "django.contrib.admin",
     "django.contrib.staticfiles",
     "apps.udise",  # UDISE school register (public-schema, admin-managed)
+    "apps.content",  # public marketing content: blog + FAQ (admin-managed)
     "rest_framework",
     "corsheaders",
 ]
@@ -260,8 +261,8 @@ LOGGING = build_logging_config(level=env("LOG_LEVEL", default="INFO"))
 # Admin theme (django-unfold) — platform console look & feel.
 # --------------------------------------------------------------------------- #
 UNFOLD = {
-    "SITE_TITLE": "Fee Ledger Platform",
-    "SITE_HEADER": "Fee Ledger",
+    "SITE_TITLE": "YukiCares Platform",
+    "SITE_HEADER": "YukiCares",
     "SITE_SUBHEADER": "Platform Console",
     "SITE_SYMBOL": "school",
     "SHOW_HISTORY": True,
@@ -304,6 +305,27 @@ UNFOLD = {
                         "title": "Backup runs",
                         "icon": "backup",
                         "link": reverse_lazy("platform_admin:tenants_backuprun_changelist"),
+                    },
+                    {
+                        "title": "WhatsApp support",
+                        "icon": "support_agent",
+                        "link": reverse_lazy("platform_admin:tenants_whatsappsupportcode_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Content",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Blog Posts",
+                        "icon": "article",
+                        "link": reverse_lazy("platform_admin:content_blogpost_changelist"),
+                    },
+                    {
+                        "title": "FAQs",
+                        "icon": "quiz",
+                        "link": reverse_lazy("platform_admin:content_faq_changelist"),
                     },
                 ],
             },
@@ -359,7 +381,7 @@ VAPID_PRIVATE_KEY = env(
     "VAPID_PRIVATE_KEY",
     default="MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZaFSgK1og199sQ35Jhah3s5M9wMEk6sHbex5Gyg-CkqhRANCAARMqVxDT9a3yAvI0ekExtyizEuChCf5-fDxKiXIdrSfIBXfUUPkS4_j-QgC1pqbyFo9sWYIMBiEZOQGmRp4ERmu",
 )
-VAPID_SUBJECT = env("VAPID_SUBJECT", default="mailto:support@feeledger.app")
+VAPID_SUBJECT = env("VAPID_SUBJECT", default="mailto:support@yukicares.cloud")
 
 # --------------------------------------------------------------------------- #
 # Platform admin console (public schema, superuser-only). The path is
@@ -404,6 +426,11 @@ RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
 MSG91_WHATSAPP_AUTHKEY = env("MSG91_WHATSAPP_AUTHKEY", default="")
 MSG91_WHATSAPP_NUMBER = env("MSG91_WHATSAPP_NUMBER", default="")  # integrated WA number
 MSG91_WHATSAPP_NAMESPACE = env("MSG91_WHATSAPP_NAMESPACE", default="")
+
+# Your WhatsApp Business number for verified support hand-off, digits only with
+# country code, no + or spaces (e.g. 919876543210). Blank = feature shows as
+# "not configured". Used to build the wa.me click-to-chat link.
+SUPPORT_WHATSAPP_NUMBER = env("SUPPORT_WHATSAPP_NUMBER", default="")
 
 # SMS (MSG91). Blank = disabled; the messaging layer logs the message (dev fallback).
 # Enabled check lives in apps.notifications.messaging.sms_enabled().
@@ -456,7 +483,7 @@ PAYROLL_ESI_WAGE_THRESHOLD = env("PAYROLL_ESI_WAGE_THRESHOLD", default="21000")
 PAYROLL_PROFESSIONAL_TAX = env("PAYROLL_PROFESSIONAL_TAX", default="200")
 
 # Base domain schools sign in from: <slug>.<TENANT_BASE_DOMAIN>.
-# Dev uses ".localhost" (browsers resolve *.localhost to 127.0.0.1); prod uses feeledger.app.
+# Dev uses ".localhost" (browsers resolve *.localhost to 127.0.0.1); prod uses yukicares.cloud.
 TENANT_BASE_DOMAIN = env("TENANT_BASE_DOMAIN", default="localhost")
 
 # Frontend origin used to build links inside emails (password reset, etc.).
@@ -474,7 +501,7 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=15)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Fee Ledger <no-reply@feeledger.app>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="YukiCares <no-reply@yukicares.cloud>")
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
     default=(

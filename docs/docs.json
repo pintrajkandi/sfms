@@ -1,0 +1,96 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "YukiCares Docs",
+  "description": "User guide for YukiCares — the all-in-one school finance & accounting platform.",
+  "colors": {
+    "primary": "#4F46E5",
+    "light": "#6366F1",
+    "dark": "#4338CA"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "getting-started/sign-up",
+          "getting-started/logging-in"
+        ]
+      },
+      {
+        "group": "School Settings",
+        "pages": [
+          "settings/overview",
+          "settings/school-profile",
+          "settings/classes-sections",
+          "settings/departments",
+          "settings/fee-setup",
+          "settings/academic-year",
+          "settings/payroll",
+          "settings/notifications"
+        ]
+      },
+      {
+        "group": "Users & Access",
+        "pages": [
+          "users/users",
+          "users/roles-permissions"
+        ]
+      },
+      {
+        "group": "Students",
+        "pages": [
+          "students/add-student",
+          "students/manage-students"
+        ]
+      },
+      {
+        "group": "Fees & Collection",
+        "pages": [
+          "fees/fee-types",
+          "fees/collect-fee",
+          "fees/invoices-receipts"
+        ]
+      },
+      {
+        "group": "Staff & Payroll",
+        "pages": [
+          "staff/add-teacher",
+          "staff/teachers-list",
+          "staff/payouts"
+        ]
+      },
+      {
+        "group": "Other Modules",
+        "pages": [
+          "modules/expenses",
+          "modules/inventory",
+          "modules/transport-hostel",
+          "modules/finance-reports"
+        ]
+      },
+      {
+        "group": "Help",
+        "pages": [
+          "mobile-app",
+          "faq"
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "website": "https://yukicares.cloud"
+    }
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Open App",
+      "href": "https://yukicares.cloud"
+    }
+  }
+}

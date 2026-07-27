@@ -33,6 +33,28 @@ export interface Student {
   other_fee: string;
 }
 
+export interface BlogPostListItem {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  author: string;
+  cover_image: string;
+  published_at: string | null;
+}
+
+export interface BlogPost extends BlogPostListItem {
+  body: string;
+}
+
+export interface FAQItem {
+  id: number;
+  question: string;
+  answer: string;
+  category: string;
+  order: number;
+}
+
 export interface Section {
   id: number;
   school_class: number;

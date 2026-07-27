@@ -448,12 +448,12 @@ class PasswordResetRequestView(APIView):
                 to_email=user.email,
                 subject=f"Reset your {school} password",
                 body=(
-                    f"We received a request to reset your Fee Ledger password for "
+                    f"We received a request to reset your YukiCares password for "
                     f"{school}.\n\nReset it here (link expires in a few hours):\n{link}\n\n"
                     "If you didn't request this, you can ignore this email."
                 ),
                 html_body=(
-                    f"<p>We received a request to reset your <strong>Fee Ledger</strong> "
+                    f"<p>We received a request to reset your <strong>YukiCares</strong> "
                     f"password for {school}.</p>"
                     f'<p><a href="{link}">Reset your password</a> '
                     "(link expires in a few hours).</p>"

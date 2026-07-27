@@ -2,7 +2,7 @@
 
 from django.conf import settings
 from django.http import JsonResponse
-from django.urls import path
+from django.urls import include, path
 
 from apps.collections.views import RazorpayWebhookView
 from apps.core.logging_api import ClientLogView
@@ -30,6 +30,8 @@ urlpatterns = [
         SlugAvailabilityView.as_view(),
         name="onboarding-slug",
     ),
+    # Public marketing content (blog + FAQ) — read-only, no tenant, no auth.
+    path("api/v1/content/", include("apps.content.urls")),
     # Razorpay webhook — single URL, no tenant subdomain; reconciles into the
     # tenant schema carried in the order notes.
     path(

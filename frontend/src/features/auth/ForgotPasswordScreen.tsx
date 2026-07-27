@@ -13,7 +13,7 @@ export function ForgotPasswordScreen() {
     e.preventDefault();
     setError("");
     if (!isTenantHost()) {
-      setError("Open this page from your school's address, e.g. yourschool.feeledger.app.");
+      setError("Open this page from your school's address, e.g. yourschool.yukicares.cloud.");
       return;
     }
     setSubmitting(true);

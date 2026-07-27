@@ -123,7 +123,7 @@ export function SettingsPage() {
 
       {!id && (
         <div className="rounded-xl bg-brand-light px-4 py-3 text-sm text-brand-dark">
-          👋 Welcome! Complete your school profile to unlock the rest of Fee Ledger — enter your
+          👋 Welcome! Complete your school profile to unlock the rest of YukiCares — enter your
           school name and save to continue.
         </div>
       )}

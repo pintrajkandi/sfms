@@ -94,7 +94,9 @@ def test_annual_fee_drives_paid_and_outstanding(tenant_ctx):
     assert summary["outstanding"] == "1500.00"  # nothing paid yet
 
     # A payment reduces the outstanding against the assigned annual fee.
-    inv = create_invoice(student=student, lines=[{"fee_type": _fee_type(), "unit_price": "1000.00"}])
+    inv = create_invoice(
+        student=student, lines=[{"fee_type": _fee_type(), "unit_price": "1000.00"}]
+    )
     record_payment(invoice=inv, amount="400.00", method="cash", idempotency_key="af1")
 
     summary = student_fee_summary(student)

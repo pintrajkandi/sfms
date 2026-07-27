@@ -17,8 +17,8 @@ from unfold.sites import UnfoldAdminSite
 
 
 class PlatformAdminSite(UnfoldAdminSite):
-    site_header = "Fee Ledger — Platform Console"
-    site_title = "Fee Ledger Platform"
+    site_header = "YukiCares — Platform Console"
+    site_title = "YukiCares Platform"
     index_title = "Schools, domains & platform operations"
 
     def has_permission(self, request) -> bool:

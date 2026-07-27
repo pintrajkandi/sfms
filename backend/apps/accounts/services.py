@@ -33,7 +33,7 @@ def send_verification_email(user, *, school_name: str, slug: str | None) -> None
     link = frontend_link(slug, "/verify-email", token=make_email_token(user.pk))
     send_mail_async(
         to_email=user.email,
-        subject=f"Verify your email for {school_name} on Fee Ledger",
+        subject=f"Verify your email for {school_name} on YukiCares",
         body=(
             f"Confirm your email to activate your {school_name} account:\n\n{link}\n\n"
             "This link expires in 3 days."

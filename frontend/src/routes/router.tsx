@@ -21,6 +21,9 @@ import { AccountingPage } from "@/features/finance/AccountingPage";
 import { FinanceDashboard } from "@/features/finance/FinanceDashboard";
 import { AuditLogPage } from "@/features/audit/AuditLogPage";
 import { LandingPage } from "@/features/marketing/LandingPage";
+import { BlogListPage } from "@/features/marketing/BlogListPage";
+import { BlogPostPage } from "@/features/marketing/BlogPostPage";
+import { FAQPage } from "@/features/marketing/FAQPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { SupportPage } from "@/features/support/SupportPage";
 import { TransportPage } from "@/features/transport/TransportPage";
@@ -47,6 +50,9 @@ export const router = createBrowserRouter([
     element: <ActivityLogger />,
     children: [
       { path: "/welcome", element: <LandingPage /> },
+      { path: "/blog", element: <BlogListPage /> },
+      { path: "/blog/:slug", element: <BlogPostPage /> },
+      { path: "/faq", element: <FAQPage /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/login", element: <LoginScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },

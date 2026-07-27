@@ -45,5 +45,5 @@ class PushTestView(APIView):
     """Send a test push to every subscription in this school."""
 
     def post(self, request):
-        sent = push_broadcast("Fee Ledger", "🔔 Test notification — push is working.", url="/")
+        sent = push_broadcast("YukiCares", "🔔 Test notification — push is working.", url="/")
         return Response({"sent": sent})

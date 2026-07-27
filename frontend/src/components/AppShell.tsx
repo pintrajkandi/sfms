@@ -87,7 +87,7 @@ export function AppShell() {
         <div className="flex items-center gap-2 px-6 py-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 font-bold">₹</div>
           <div className="leading-tight">
-            <p className="font-semibold tracking-wide">FEE LEDGER</p>
+            <p className="font-semibold tracking-wide">YukiCares</p>
             <p className="text-[11px] text-white/70">Smart School Finance</p>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function AppShell() {
         <header className="sticky top-0 z-20 flex items-center justify-between bg-brand-gradient px-4 py-3 text-white lg:hidden print:!hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 font-bold">₹</div>
-            <span className="font-semibold tracking-wide">FEE LEDGER</span>
+            <span className="font-semibold tracking-wide">YukiCares</span>
           </div>
           <button
             onClick={logout}

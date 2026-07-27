@@ -11,8 +11,8 @@ export default defineConfig({
       includeAssets: ["pwa-icon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
       devOptions: { enabled: true }, // let the app install/run standalone in dev too
       manifest: {
-        name: "Fee Ledger — Smart School Finance",
-        short_name: "Fee Ledger",
+        name: "YukiCares — Smart School Finance",
+        short_name: "YukiCares",
         description: "Manage school fees, invoices, payouts, expenses and more.",
         theme_color: "#2563EB",
         background_color: "#ffffff",

@@ -1,0 +1,54 @@
+---
+title: "Collect a Fee"
+description: "Record a student fee payment with the step-by-step wizard, choose a payment method, and generate a numbered receipt."
+---
+
+Open **Fee Collection** from the sidebar. The page shows your collection totals and a searchable list of **fees collected**. To record a new payment, choose **+ New Collection**.
+
+## The collection wizard
+
+<Steps>
+  <Step title="Student Info">
+    Search for the student by name, ID or phone and select them. Their details and outstanding balance load automatically.
+  </Step>
+
+  <Step title="Fee Details">
+    Add one or more **fee types** and enter the amount for each. The wizard totals them into the amount due.
+  </Step>
+
+  <Step title="Payment">
+    Choose the **payment method**, confirm the amount and date, and add an optional reference:
+
+    <CardGroup cols={3}>
+      <Card title="Cash" icon="money-bill" />
+      <Card title="Bank Transfer" icon="building-columns" />
+      <Card title="UPI" icon="mobile-screen" />
+    </CardGroup>
+
+    For non-cash methods you can record a **reference / UTR number**. Then choose **Confirm Payment**.
+  </Step>
+</Steps>
+
+<Info>
+A **numeric receipt number** is generated automatically when you confirm — you don't type it in. The payment is recorded against a new invoice for the student.
+</Info>
+
+## Payment methods
+
+| Method | Reference captured |
+| --- | --- |
+| **Cash** | None needed |
+| **Bank Transfer** | UTR / voucher number (optional) |
+| **UPI** | UPI transaction reference (optional) |
+
+<Tip>
+Payments are **idempotent** — if you accidentally submit twice, the student is not double-charged.
+</Tip>
+
+## Reviewing collected fees
+
+Back on the **Fee Collection** page, the **Fees Collected** list shows every payment with its date, receipt number, student, method, amount and status. Use the search box to find a specific receipt, student or reference, and open the **Invoice** or **Receipt** for any row.
+
+<Note>
+There's no separate "Collections" menu — the full list of collected fees lives right here on the Fee Collection page.
+</Note>

@@ -33,7 +33,7 @@ export function InstallPrompt() {
     <div className="fixed inset-x-3 bottom-3 z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg print:hidden">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-gradient font-bold text-white">₹</div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-800">Install Fee Ledger</p>
+        <p className="text-sm font-semibold text-slate-800">Install YukiCares</p>
         <p className="truncate text-xs text-slate-500">Add to your home screen for quick, app-like access.</p>
       </div>
       <button

@@ -1,5 +1,8 @@
 import { api } from "./client";
 import type {
+  BlogPost,
+  BlogPostListItem,
+  FAQItem,
   AcademicYear,
   CollectionDashboard,
   CollectionStats,
@@ -307,10 +310,19 @@ export interface SupportTicket {
   created_at: string;
 }
 
+export interface WhatsAppSupport {
+  code: string;
+  expires_at: string;
+  whatsapp_number: string;
+  whatsapp_url: string;
+  configured: boolean;
+}
+
 export const support = {
   list: () => list<SupportTicket>("/support-tickets/"),
   create: (body: { subject: string; category: string; message: string; contact_email?: string }) =>
     api.post<SupportTicket>("/support-tickets/", body),
+  whatsapp: (topic = "") => api.post<WhatsAppSupport>("/support/whatsapp/", { topic }),
 };
 
 export interface TransportRoute {
@@ -524,6 +536,13 @@ export interface PayslipData {
   total_deductions: string;
   net_amount: string;
 }
+
+// Public marketing content (blog + FAQ) — read-only, no auth required.
+export const content = {
+  posts: () => api.get<BlogPostListItem[]>("/content/posts/"),
+  post: (slug: string) => api.get<BlogPost>(`/content/posts/${slug}/`),
+  faqs: () => api.get<FAQItem[]>("/content/faqs/"),
+};
 
 export const expenses = {
   create: (body: Partial<Expense>) => api.post<Expense>("/expenses/", body),

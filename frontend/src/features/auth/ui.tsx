@@ -110,7 +110,7 @@ export function BrandLogo() {
         <path d="M19 16h11M22 16v13M22 22h6" stroke="#1D4ED8" strokeWidth="2.6" strokeLinecap="round" />
       </svg>
       <div className="leading-tight">
-        <p className="text-lg font-bold tracking-tight text-slate-900">FEE LEDGER</p>
+        <p className="text-lg font-bold tracking-tight text-slate-900">YukiCares</p>
         <p className="text-xs text-slate-500">Smart School Finance</p>
       </div>
     </div>
