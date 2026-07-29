@@ -27,7 +27,7 @@ from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationFo
 from apps.accounts.models import User
 
 from .admin_site import platform_admin
-from .models import BackupRun, Client, Domain, Plan, WhatsAppSupportCode
+from .models import BackupRun, Client, Domain, Plan
 from .services import provision_school
 
 _STAT_TTL = 300  # cross-tenant stat columns are cached to avoid an N+1 across schemas
@@ -529,45 +529,9 @@ class PlanAdmin(ModelAdmin):
     search_fields = ("name",)
 
 
-class WhatsAppSupportCodeAdmin(ModelAdmin):
-    """Verify a WhatsApp support code: search the code the customer sent."""
-
-    list_display = (
-        "code",
-        "verified_badge",
-        "school_name",
-        "user_name",
-        "created_at",
-        "expires_at",
-    )
-    list_filter = ("status",)
-    search_fields = ("code", "school_name", "school_code", "user_email", "user_phone")
-    # Everything is read-only except `status`, which the agent flips to verified/closed.
-    readonly_fields = tuple(f.name for f in WhatsAppSupportCode._meta.fields if f.name != "status")
-    ordering = ("-created_at",)
-
-    @display(description="Valid")
-    def verified_badge(self, obj):
-        if obj.is_expired and obj.status == WhatsAppSupportCode.Status.ISSUED:
-            return format_html('<span style="color:#b45309">expired</span>')
-        colors = {"issued": "#2563eb", "verified": "#059669", "closed": "#64748b"}
-        return format_html(
-            '<b style="color:{}">{}</b>',
-            colors.get(obj.status, "#64748b"),
-            obj.get_status_display(),
-        )
-
-    def has_add_permission(self, request):
-        return False  # codes are minted by the app, never by hand
-
-    def has_change_permission(self, request, obj=None):
-        return True  # allow marking verified/closed
-
-
 platform_admin.register(Plan, PlanAdmin)
 platform_admin.register(Client, ClientAdmin)
 platform_admin.register(Domain, DomainAdmin)
 platform_admin.register(BackupRun, BackupRunAdmin)
-platform_admin.register(WhatsAppSupportCode, WhatsAppSupportCodeAdmin)
 platform_admin.register(LogEntry, ActivityLogAdmin)
 platform_admin.register(User, PlatformUserAdmin)

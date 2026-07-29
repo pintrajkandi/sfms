@@ -310,19 +310,10 @@ export interface SupportTicket {
   created_at: string;
 }
 
-export interface WhatsAppSupport {
-  code: string;
-  expires_at: string;
-  whatsapp_number: string;
-  whatsapp_url: string;
-  configured: boolean;
-}
-
 export const support = {
   list: () => list<SupportTicket>("/support-tickets/"),
   create: (body: { subject: string; category: string; message: string; contact_email?: string }) =>
     api.post<SupportTicket>("/support-tickets/", body),
-  whatsapp: (topic = "") => api.post<WhatsAppSupport>("/support/whatsapp/", { topic }),
 };
 
 export interface TransportRoute {

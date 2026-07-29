@@ -6,7 +6,7 @@ they create tenants and resolve school codes to subdomains. No auth required.
 from __future__ import annotations
 
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -28,25 +28,6 @@ def _tenant_payload(client: Client) -> dict:
         "domain": domain,
         "login_url": f"http://{domain}:5173/login",
     }
-
-
-class WhatsAppSupportView(APIView):
-    """Issue a verified WhatsApp support code for the signed-in customer.
-
-    Authentication is the verification: only a logged-in school user can mint a
-    code, and the code embeds who they are for the agent to confirm.
-    """
-
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        from .whatsapp_support import issue_whatsapp_code
-
-        try:
-            data = issue_whatsapp_code(user=request.user, topic=request.data.get("topic", ""))
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class SignupView(APIView):

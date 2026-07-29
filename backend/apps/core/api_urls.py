@@ -89,7 +89,6 @@ from apps.schools.views import (
 )
 from apps.staff.views import PayoutViewSet, TeacherViewSet
 from apps.students.views import StudentViewSet
-from apps.tenants.api import WhatsAppSupportView
 from apps.transport.views import (
     RouteProfitabilityView,
     TransportExpenseViewSet,
@@ -143,8 +142,6 @@ urlpatterns = [
     path("client-logs/", ClientLogView.as_view(), name="client-logs"),
     # Public marketing content (blog + FAQ) — also reachable on subdomains.
     path("content/", include("apps.content.urls")),
-    # Verified WhatsApp support handoff (authenticated customer → chat link).
-    path("support/whatsapp/", WhatsAppSupportView.as_view(), name="support-whatsapp"),
     # Tenant-scoped auth (served on the school subdomain).
     path("auth/csrf/", CsrfView.as_view(), name="auth-csrf"),
     path("auth/tenant/", TenantInfoView.as_view(), name="auth-tenant"),

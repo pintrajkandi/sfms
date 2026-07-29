@@ -306,11 +306,6 @@ UNFOLD = {
                         "icon": "backup",
                         "link": reverse_lazy("platform_admin:tenants_backuprun_changelist"),
                     },
-                    {
-                        "title": "WhatsApp support",
-                        "icon": "support_agent",
-                        "link": reverse_lazy("platform_admin:tenants_whatsappsupportcode_changelist"),
-                    },
                 ],
             },
             {
@@ -426,11 +421,6 @@ RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
 MSG91_WHATSAPP_AUTHKEY = env("MSG91_WHATSAPP_AUTHKEY", default="")
 MSG91_WHATSAPP_NUMBER = env("MSG91_WHATSAPP_NUMBER", default="")  # integrated WA number
 MSG91_WHATSAPP_NAMESPACE = env("MSG91_WHATSAPP_NAMESPACE", default="")
-
-# Your WhatsApp Business number for verified support hand-off, digits only with
-# country code, no + or spaces (e.g. 919876543210). Blank = feature shows as
-# "not configured". Used to build the wa.me click-to-chat link.
-SUPPORT_WHATSAPP_NUMBER = env("SUPPORT_WHATSAPP_NUMBER", default="")
 
 # SMS (MSG91). Blank = disabled; the messaging layer logs the message (dev fallback).
 # Enabled check lives in apps.notifications.messaging.sms_enabled().
