@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django import forms
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.contrib.admin import action, display
 from django.contrib.admin.models import LogEntry
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -535,3 +535,42 @@ platform_admin.register(Domain, DomainAdmin)
 platform_admin.register(BackupRun, BackupRunAdmin)
 platform_admin.register(LogEntry, ActivityLogAdmin)
 platform_admin.register(User, PlatformUserAdmin)
+
+
+# --------------------------------------------------------------------------- #
+# Celery beat — editable cron/interval schedules from the platform console.
+# The nightly-backup schedules defined in config.celery are synced into these
+# PeriodicTask rows by the DatabaseScheduler, so operators can add / pause /
+# reschedule the daily backup (and any other job) without a deploy.
+# --------------------------------------------------------------------------- #
+from django_celery_beat.admin import PeriodicTaskAdmin as BasePeriodicTaskAdmin  # noqa: E402
+from django_celery_beat.models import (  # noqa: E402
+    ClockedSchedule,
+    CrontabSchedule,
+    IntervalSchedule,
+    PeriodicTask,
+    SolarSchedule,
+)
+
+
+class PeriodicTaskAdmin(ModelAdmin, BasePeriodicTaskAdmin):
+    """Editable Celery beat schedules, Unfold-styled."""
+
+
+class ScheduleAdmin(ModelAdmin):
+    """Cron / interval / solar / clocked schedule building blocks."""
+
+
+# django_celery_beat auto-registers these on the default (unmounted) admin site
+# during autodiscover; move them onto the public-only platform console.
+for _beat_model in (PeriodicTask, IntervalSchedule, CrontabSchedule, SolarSchedule, ClockedSchedule):
+    try:
+        admin.site.unregister(_beat_model)
+    except admin.sites.NotRegistered:
+        pass
+
+platform_admin.register(PeriodicTask, PeriodicTaskAdmin)
+platform_admin.register(IntervalSchedule, ScheduleAdmin)
+platform_admin.register(CrontabSchedule, ScheduleAdmin)
+platform_admin.register(SolarSchedule, ScheduleAdmin)
+platform_admin.register(ClockedSchedule, ScheduleAdmin)

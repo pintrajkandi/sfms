@@ -45,6 +45,7 @@ SHARED_APPS = [
     "django.contrib.staticfiles",
     "apps.udise",  # UDISE school register (public-schema, admin-managed)
     "apps.content",  # public marketing content: blog + FAQ (admin-managed)
+    "django_celery_beat",  # DB-backed Celery beat schedules (editable in admin, public schema)
     "rest_framework",
     "corsheaders",
 ]
@@ -158,6 +159,12 @@ CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=REDIS_URL)
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True
+# Store beat schedules in the DB so operators can add/pause/reschedule crons from
+# the platform admin. The DatabaseScheduler syncs the code-defined defaults in
+# config.celery.beat_schedule (nightly backups etc.) into editable PeriodicTask
+# rows on startup; it reads/writes the public schema (django_celery_beat is a
+# SHARED_APP), which is where the beat process runs.
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # --------------------------------------------------------------------------- #
 # Object storage — any S3-compatible provider via django-storages.
@@ -187,6 +194,11 @@ STORAGE_PUBLIC_DOMAIN = env(
 STORAGE_URL_PROTOCOL = env("STORAGE_URL_PROTOCOL", default="http:")
 # Public (unsigned) URLs for MinIO's anonymous-read bucket; flip to True to sign.
 STORAGE_QUERYSTRING_AUTH = env.bool("STORAGE_QUERYSTRING_AUTH", default=False)
+# Encryption at rest for object storage (student photos, logos, PDFs + backups).
+# Leave blank in dev (MinIO). In prod set to "AES256" (provider-managed keys) or
+# "aws:kms". Bunny.net Edge Storage encrypts at rest natively and ignores this
+# header, so this only matters for stores that honour SSE (AWS S3, MinIO+KMS).
+STORAGE_SERVER_SIDE_ENCRYPTION = env("STORAGE_SERVER_SIDE_ENCRYPTION", default="")
 
 _STORAGE_OPTIONS = {
     "access_key": STORAGE_ACCESS_KEY,
@@ -202,6 +214,11 @@ _STORAGE_OPTIONS = {
 # custom_domain only makes sense for unsigned public URLs; omit it when signing.
 if STORAGE_PUBLIC_DOMAIN and not STORAGE_QUERYSTRING_AUTH:
     _STORAGE_OPTIONS["custom_domain"] = STORAGE_PUBLIC_DOMAIN
+# Ask the store to encrypt every object at rest (uploads + nightly backups).
+if STORAGE_SERVER_SIDE_ENCRYPTION:
+    _STORAGE_OPTIONS["object_parameters"] = {
+        "ServerSideEncryption": STORAGE_SERVER_SIDE_ENCRYPTION
+    }
 
 STORAGES = {
     "default": {
@@ -321,6 +338,33 @@ UNFOLD = {
                         "title": "FAQs",
                         "icon": "quiz",
                         "link": reverse_lazy("platform_admin:content_faq_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": "Automation",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Scheduled tasks",
+                        "icon": "schedule",
+                        "link": reverse_lazy(
+                            "platform_admin:django_celery_beat_periodictask_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Crontabs",
+                        "icon": "more_time",
+                        "link": reverse_lazy(
+                            "platform_admin:django_celery_beat_crontabschedule_changelist"
+                        ),
+                    },
+                    {
+                        "title": "Intervals",
+                        "icon": "timelapse",
+                        "link": reverse_lazy(
+                            "platform_admin:django_celery_beat_intervalschedule_changelist"
+                        ),
                     },
                 ],
             },

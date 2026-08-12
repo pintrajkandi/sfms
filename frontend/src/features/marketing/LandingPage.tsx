@@ -15,17 +15,21 @@ const BRAND = "YukiCares";
 
 const HERO_CHECKS = ["Easy to Use", "100% Secure", "Cloud Based", "24/7 Support"];
 
-const MODULES: { icon: string; tint: string; title: string; body: string }[] = [
-  { icon: "🧾", tint: "bg-indigo-100 text-indigo-600", title: "Fee Management", body: "Create fee structures, collect fees, manage discounts, late fees, refunds and receipts." },
-  { icon: "📊", tint: "bg-emerald-100 text-emerald-600", title: "Accounting", body: "Automated accounting with journals, ledgers, trial balance, P&L and balance sheet." },
-  { icon: "💸", tint: "bg-amber-100 text-amber-600", title: "Expense Management", body: "Track and manage all school expenses with approvals and categories." },
-  { icon: "👥", tint: "bg-rose-100 text-rose-600", title: "Payroll", body: "Manage staff salaries, deductions, payslips, PF, ESI, TDS and more." },
-  { icon: "📦", tint: "bg-sky-100 text-sky-600", title: "Inventory", body: "Manage school inventory, stock levels, purchases and consumables." },
-  { icon: "🚌", tint: "bg-cyan-100 text-cyan-600", title: "Transport", body: "Manage transport routes, vehicles, expenses and collections." },
-  { icon: "🏨", tint: "bg-fuchsia-100 text-fuchsia-600", title: "Hostel", body: "Hostel room allocation, mess charges and hostel accounting." },
-  { icon: "💳", tint: "bg-violet-100 text-violet-600", title: "Online Payments", body: "Accept secure online payments and auto-reconcile transactions." },
-  { icon: "📈", tint: "bg-blue-100 text-blue-600", title: "Reports", body: "40+ financial and operational reports at your fingertips." },
-  { icon: "🔔", tint: "bg-orange-100 text-orange-600", title: "Reminders & Receipts", body: "Staged WhatsApp & SMS fee reminders with digitally-signed receipts." },
+const PLATFORM_FEATURES: { icon: string; tint: string; title: string; body: string; points: string[] }[] = [
+  {
+    icon: "🛡️",
+    tint: "bg-emerald-100 text-emerald-600",
+    title: "Automatic Daily Backups",
+    body: "Your school's data is safe by default. Every night we take a verified, checksum-validated backup and store it securely off-site.",
+    points: ["Nightly automated backups", "Encrypted off-site storage", "One-click restore, any point in time"],
+  },
+  {
+    icon: "🌐",
+    tint: "bg-indigo-100 text-indigo-600",
+    title: "Your Own School Subdomain",
+    body: "Each school runs on its own dedicated address (yourschool.yukicares.cloud) with fully isolated data — never shared with another institution.",
+    points: ["Branded per-school subdomain", "Complete data isolation", "Sign in with your school code"],
+  },
 ];
 
 const WHY = [
@@ -51,11 +55,78 @@ const TESTIMONIALS = [
   { quote: "Parents love the reminders and online updates. Fee defaults reduced by 60% in just 3 months.", who: "Administrator", school: "St. Mary's School, Lucknow" },
 ];
 
+// Marketing pricing tiers. Two plans: Free (to encourage schools to go digital)
+// and Enterprise (contact-only — interested schools email sales).
+const SALES_EMAIL = "support@yukicares.cloud";
+const PRICING: {
+  name: string;
+  price: string;
+  period: string;
+  tagline: string;
+  note?: string;
+  features: string[];
+  cta: string;
+  href: string;
+  contact?: boolean;
+  featured?: boolean;
+}[] = [
+  {
+    name: "Free",
+    price: "₹0",
+    period: "/forever",
+    tagline: "Everything a school needs to run its finances — completely free.",
+    note: "Why free? We want to encourage every school to go digital, so we're offering YukiCares free of cost.",
+    features: [
+      "Fee collection, receipts & invoices",
+      "Complete accounting & reports",
+      "Payroll, expenses & inventory",
+      "WhatsApp & SMS reminders",
+      "Your own secure school subdomain",
+      "Automatic daily backups",
+      "Email support",
+    ],
+    cta: "Get Started Free",
+    href: "/signup",
+    featured: true,
+  },
+  {
+    name: "Enterprise",
+    price: "Custom",
+    period: "",
+    tagline: "For large or multi-branch institutions with custom needs.",
+    note: "Tailored onboarding, integrations and a dedicated manager — let's talk.",
+    features: [
+      "Everything in Free",
+      "Multi-branch / group management",
+      "Dedicated account manager",
+      "Custom integrations & onboarding",
+      "Priority, SLA-backed support",
+    ],
+    cta: "Contact Us",
+    href: `mailto:${SALES_EMAIL}?subject=${encodeURIComponent("Enterprise Plan Enquiry — YukiCares")}&body=${encodeURIComponent(
+      "Hi YukiCares team,\n\nWe're interested in the Enterprise plan. Here are our details:\n\nSchool name:\nNumber of students / branches:\nContact person:\nPhone:\n\nThanks,",
+    )}`,
+    contact: true,
+  },
+];
+
 const FOOTER_COLS: { title: string; links: string[] }[] = [
-  { title: "Product", links: ["Features", "Modules", "Pricing", "Integrations", "Updates"] },
+  { title: "Product", links: ["Features", "Pricing", "Integrations", "Updates"] },
   { title: "Company", links: ["About Us", "Careers", "Partners", "Blog", "Contact Us"] },
   { title: "Resources", links: ["Help Center", "User Guides", "Webinars", "Privacy Policy", "Terms of Service"] },
 ];
+
+// Footer labels that map to a real page/section (others fall back to top of page).
+const FOOTER_LINK_ROUTES: Record<string, string> = {
+  "About Us": "/about",
+  Blog: "/blog",
+  Pricing: "#pricing",
+  Features: "#platform",
+  "Contact Us": "#footer",
+  "Help Center": "/faq",
+  "Privacy Policy": "/privacy",
+  "Terms of Service": "/terms",
+};
 
 // ---- small pieces -------------------------------------------------------- //
 
@@ -89,12 +160,12 @@ function Logo({ light = false }: { light?: boolean }) {
 function NavBar() {
   const [open, setOpen] = useState(false);
   const links: { label: string; to: string; caret?: boolean }[] = [
-    { label: "Features", to: "#modules", caret: true },
-    { label: "Modules", to: "#modules" },
-    { label: "Pricing", to: "#cta" },
-    { label: "About Us", to: "#why" },
+    { label: "Home", to: "#top" },
+    { label: "About Us", to: "/about" },
+    { label: "Pricing", to: "#pricing" },
     { label: "Blog", to: "/blog" },
     { label: "FAQ", to: "/faq" },
+    { label: "Security", to: "/security" },
     { label: "Contact", to: "#footer" },
   ];
   return (
@@ -265,9 +336,9 @@ function Hero() {
             <Link to="/signup" className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:opacity-95">
               Book a Free Demo
             </Link>
-            <a href="#modules" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <a href="#pricing" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               <svg className="h-4 w-4 text-indigo-600" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-              Watch Video
+              See Pricing
             </a>
           </div>
 
@@ -289,23 +360,33 @@ function Hero() {
   );
 }
 
-function Modules() {
+function PlatformFeatures() {
   return (
-    <section id="modules" className="bg-white py-20">
+    <section id="platform" className="bg-gradient-to-b from-indigo-50/40 to-white py-20">
       <div className="mx-auto max-w-7xl px-6">
-        <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Everything You Need</p>
+        <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Secure &amp; Reliable</p>
         <h2 className="mx-auto mt-3 max-w-3xl text-center text-3xl font-bold text-slate-900 sm:text-4xl">
-          Powerful Modules for{" "}
-          <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Complete</span>{" "}
-          School Financial Management
+          Enterprise-grade{" "}
+          <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Infrastructure</span>{" "}
+          for Every School
         </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-slate-500">
+          Your data is protected around the clock and every school gets its own private, isolated workspace.
+        </p>
 
-        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-          {MODULES.map((m) => (
-            <div key={m.title} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-              <span className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl ${m.tint}`}>{m.icon}</span>
-              <h3 className="mt-4 text-base font-bold text-slate-900">{m.title}</h3>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{m.body}</p>
+        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {PLATFORM_FEATURES.map((f) => (
+            <div key={f.title} className="rounded-2xl border border-slate-100 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+              <span className={`flex h-12 w-12 items-center justify-center rounded-xl text-2xl ${f.tint}`}>{f.icon}</span>
+              <h3 className="mt-5 text-lg font-bold text-slate-900">{f.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">{f.body}</p>
+              <ul className="mt-5 space-y-2.5">
+                {f.points.map((p) => (
+                  <li key={p} className="flex items-start gap-2.5 text-sm text-slate-600">
+                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" /> <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
@@ -427,6 +508,87 @@ function Testimonials() {
   );
 }
 
+function Pricing() {
+  return (
+    <section id="pricing" className="bg-gradient-to-b from-slate-50 to-white py-20">
+      <div className="mx-auto max-w-7xl px-6">
+        <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Pricing</p>
+        <h2 className="mx-auto mt-3 max-w-3xl text-center text-3xl font-bold text-slate-900 sm:text-4xl">
+          Simple, Transparent{" "}
+          <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Pricing</span>
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-slate-500">
+          YukiCares is free for schools. Need multi-branch or custom onboarding? Talk to us about Enterprise.
+        </p>
+
+        <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 items-stretch gap-6 sm:grid-cols-2">
+          {PRICING.map((p) => (
+            <div
+              key={p.name}
+              className={`relative flex flex-col rounded-2xl border bg-white p-7 shadow-sm transition hover:shadow-lg ${
+                p.featured ? "border-indigo-300 shadow-indigo-100 ring-2 ring-indigo-500/60 sm:-translate-y-2" : "border-slate-100"
+              }`}
+            >
+              {p.featured && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow">
+                  Recommended
+                </span>
+              )}
+              <h3 className="text-lg font-bold text-slate-900">{p.name}</h3>
+              <p className="mt-1.5 min-h-[40px] text-[13px] leading-relaxed text-slate-500">{p.tagline}</p>
+              <div className="mt-5 flex items-end gap-1">
+                <span className="text-4xl font-extrabold text-slate-900">{p.price}</span>
+                {p.period && <span className="mb-1 text-sm text-slate-400">{p.period}</span>}
+              </div>
+              {p.note && (
+                <p className="mt-3 rounded-lg bg-indigo-50 px-3 py-2 text-[12px] font-medium leading-relaxed text-indigo-700">
+                  {p.note}
+                </p>
+              )}
+
+              <ul className="mt-6 flex-1 space-y-3">
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
+                    <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" /> <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {p.contact ? (
+                <a
+                  href={p.href}
+                  className="mt-8 block rounded-xl border border-indigo-200 bg-white px-6 py-3 text-center text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
+                >
+                  {p.cta}
+                </a>
+              ) : (
+                <Link
+                  to={p.href}
+                  className={`mt-8 block rounded-xl px-6 py-3 text-center text-sm font-semibold transition ${
+                    p.featured
+                      ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/20 hover:opacity-95"
+                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {p.cta}
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-8 text-center text-xs text-slate-400">
+          No credit card required to get started. Have questions?{" "}
+          <a href={`mailto:${SALES_EMAIL}`} className="font-medium text-indigo-600 hover:underline">
+            Contact our team
+          </a>
+          .
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function CtaBand() {
   return (
     <section id="cta" className="bg-white px-6 pb-20">
@@ -472,9 +634,19 @@ function Footer() {
           <div key={col.title}>
             <p className="text-sm font-semibold text-slate-800">{col.title}</p>
             <ul className="mt-4 space-y-2.5">
-              {col.links.map((l) => (
-                <li key={l}><a href="#top" className="text-sm text-slate-500 hover:text-indigo-600">{l}</a></li>
-              ))}
+              {col.links.map((l) => {
+                const to = FOOTER_LINK_ROUTES[l] ?? "#top";
+                const cls = "text-sm text-slate-500 hover:text-indigo-600";
+                return (
+                  <li key={l}>
+                    {to.startsWith("/") ? (
+                      <Link to={to} className={cls}>{l}</Link>
+                    ) : (
+                      <a href={to} className={cls}>{l}</a>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
@@ -502,9 +674,10 @@ export function LandingPage() {
     <div className="min-h-screen scroll-smooth bg-white text-slate-800">
       <NavBar />
       <Hero />
-      <Modules />
+      <PlatformFeatures />
       <WhyChoose />
       <Testimonials />
+      <Pricing />
       <CtaBand />
       <Footer />
     </div>

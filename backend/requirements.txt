@@ -8,6 +8,7 @@ django-cors-headers>=4.4
 
 # Async / queue
 celery>=5.4
+django-celery-beat>=2.6   # DB-backed periodic tasks — schedules editable in admin
 redis>=5.0
 django-redis>=5.4
 

@@ -24,6 +24,10 @@ import { LandingPage } from "@/features/marketing/LandingPage";
 import { BlogListPage } from "@/features/marketing/BlogListPage";
 import { BlogPostPage } from "@/features/marketing/BlogPostPage";
 import { FAQPage } from "@/features/marketing/FAQPage";
+import { AboutPage } from "@/features/marketing/AboutPage";
+import { SecurityPage } from "@/features/marketing/SecurityPage";
+import { PrivacyPolicyPage } from "@/features/marketing/PrivacyPolicyPage";
+import { TermsPage } from "@/features/marketing/TermsPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { SupportPage } from "@/features/support/SupportPage";
 import { TransportPage } from "@/features/transport/TransportPage";
@@ -53,6 +57,10 @@ export const router = createBrowserRouter([
       { path: "/blog", element: <BlogListPage /> },
       { path: "/blog/:slug", element: <BlogPostPage /> },
       { path: "/faq", element: <FAQPage /> },
+      { path: "/about", element: <AboutPage /> },
+      { path: "/security", element: <SecurityPage /> },
+      { path: "/privacy", element: <PrivacyPolicyPage /> },
+      { path: "/terms", element: <TermsPage /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/login", element: <LoginScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },

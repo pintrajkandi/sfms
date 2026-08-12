@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { log } from "@/lib/logger";
+import { TidioChat } from "@/components/TidioChat";
 
 /**
  * Prints a full activity trail to the console:
@@ -37,5 +38,10 @@ export function ActivityLogger() {
     return () => document.removeEventListener("click", onClick, true);
   }, []);
 
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <TidioChat />
+    </>
+  );
 }

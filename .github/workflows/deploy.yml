@@ -1,0 +1,84 @@
+name: Deploy to Hetzner
+
+# Deploys the app to the Hetzner server at /home/sfms.
+#
+# Trigger: every push to main, or manually from the Actions tab.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   HETZNER_HOST      – server IP or hostname
+#   HETZNER_USERNAME  – SSH username you were given
+#   HETZNER_PASSWORD  – SSH password you were given
+#   HETZNER_SSH_PORT  – (optional) SSH port; defaults to 22
+#
+# NOTE: password-based SSH works but an SSH key is more secure — see the note
+# at the bottom of this file if you want to switch later.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never let two deploys run at once.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install rsync + sshpass
+        run: sudo apt-get update && sudo apt-get install -y rsync sshpass
+
+      - name: Trust the server host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.HETZNER_SSH_PORT || 22 }}" -H "${{ secrets.HETZNER_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Sync code to /home/sfms
+        env:
+          SSHPASS: ${{ secrets.HETZNER_PASSWORD }}
+        run: |
+          sshpass -e rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'node_modules' \
+            --exclude 'backend/venv' \
+            --exclude 'frontend/dist' \
+            --exclude '**/__pycache__' \
+            --exclude '.env' \
+            --exclude 'backend/.env' \
+            --exclude 'frontend/.env' \
+            --exclude 'backend/celerybeat-schedule' \
+            --exclude 'backend/staticfiles' \
+            --exclude 'backend/media' \
+            -e "ssh -p ${{ secrets.HETZNER_SSH_PORT || 22 }} -o StrictHostKeyChecking=yes" \
+            ./ "${{ secrets.HETZNER_USERNAME }}@${{ secrets.HETZNER_HOST }}:/home/sfms/"
+
+      - name: Build, restart and collect static
+        env:
+          SSHPASS: ${{ secrets.HETZNER_PASSWORD }}
+        run: |
+          sshpass -e ssh -p "${{ secrets.HETZNER_SSH_PORT || 22 }}" \
+            -o StrictHostKeyChecking=yes \
+            "${{ secrets.HETZNER_USERNAME }}@${{ secrets.HETZNER_HOST }}" bash -s <<'REMOTE'
+          set -euo pipefail
+          cd /home/sfms
+
+          # Rebuild images with the freshly-synced code.
+          docker compose build
+
+          # Restart the stack (backend entrypoint auto-runs migrations +
+          # bootstraps the public tenant on start — idempotent).
+          docker compose up -d
+
+          # Collect static files for WhiteNoise (skip re-migrating here).
+          docker compose run --rm -e RUN_MIGRATIONS=0 backend \
+            python manage.py collectstatic --noinput
+
+          # Drop dangling images so the disk doesn't fill up over time.
+          docker image prune -f
+          REMOTE
