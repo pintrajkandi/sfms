@@ -1,6 +1,7 @@
-name: Deploy to Hetzner
+name: Copy code to Hetzner
 
-# Deploys the app to the Hetzner server at /home/sfms.
+# Copies the repo to the Hetzner server at /home/sfms. It does NOT build or
+# restart anything — you build on the server yourself after this runs.
 #
 # Trigger: every push to main, or manually from the Actions tab.
 #
@@ -58,27 +59,9 @@ jobs:
             -e "ssh -p ${{ secrets.HETZNER_SSH_PORT || 22 }} -o StrictHostKeyChecking=yes" \
             ./ "${{ secrets.HETZNER_USERNAME }}@${{ secrets.HETZNER_HOST }}:/home/sfms/"
 
-      - name: Build, restart and collect static
-        env:
-          SSHPASS: ${{ secrets.HETZNER_PASSWORD }}
-        run: |
-          sshpass -e ssh -p "${{ secrets.HETZNER_SSH_PORT || 22 }}" \
-            -o StrictHostKeyChecking=yes \
-            "${{ secrets.HETZNER_USERNAME }}@${{ secrets.HETZNER_HOST }}" bash -s <<'REMOTE'
-          set -euo pipefail
-          cd /home/sfms
-
-          # Rebuild images with the freshly-synced code.
-          docker compose build
-
-          # Restart the stack (backend entrypoint auto-runs migrations +
-          # bootstraps the public tenant on start — idempotent).
-          docker compose up -d
-
-          # Collect static files for WhiteNoise (skip re-migrating here).
-          docker compose run --rm -e RUN_MIGRATIONS=0 backend \
-            python manage.py collectstatic --noinput
-
-          # Drop dangling images so the disk doesn't fill up over time.
-          docker image prune -f
-          REMOTE
+      # Build/restart happens on the server — this pipeline only copies files.
+      # After it runs, SSH into the server and, from /home/sfms, build & start:
+      #   docker compose build
+      #   docker compose up -d
+      #   docker compose run --rm -e RUN_MIGRATIONS=0 backend \
+      #     python manage.py collectstatic --noinput
