@@ -109,6 +109,23 @@ services:
     depends_on:
       - backend
 
+  # Reverse proxy — serves the built SPA (frontend/dist) for yukicares.cloud +
+  # every *.yukicares.cloud subdomain, and routes /api /admin /health /static to
+  # the backend. Build the frontend first so ./frontend/dist exists:
+  #   docker compose run --rm frontend npm run build
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      # - "443:443"   # enable when you add the wildcard TLS cert
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      # - ./nginx/certs:/etc/nginx/certs:ro   # wildcard cert for HTTPS
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   pgdata:
   miniodata:

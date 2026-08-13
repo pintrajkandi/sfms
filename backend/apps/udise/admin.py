@@ -60,12 +60,18 @@ class UdiseSchoolAdmin(ModelAdmin):
         "email",
         "mail_sent",
     )
-    list_filter = ("mail_sent", "state_name", "district_name", "class_to")
+    # Keep only cheap filters. state_name/district_name/class_to as list_filter
+    # forced a `SELECT DISTINCT` over ~1M rows on every page load (~150-180ms
+    # each); use search for those instead.
+    list_filter = ("mail_sent",)
     search_fields = ("school_name", "email", "address", "district_name", "state_name")
     search_help_text = "Search by school name, email, address, district or state."
     list_editable = ("mail_sent",)  # True/False dropdown, straight from the list
     list_per_page = 50
-    date_hierarchy = "created_at"
+    # Skip the second, full COUNT(*) Django runs for the "N results" line.
+    show_full_result_count = False
+    # No date_hierarchy: the created_at month drill-down ran a distinct-by-month
+    # aggregation over ~1M rows every load (~400ms) for little value here.
 
     # Unfold renders these as buttons at the top of the changelist.
     actions_list = ("import_csv",)

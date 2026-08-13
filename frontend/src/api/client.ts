@@ -10,26 +10,40 @@
 import { log } from "@/lib/logger";
 
 const API_PORT = "8000";
+// Hosts (or leading labels) that are the public apex, never a school subdomain.
 const APEX_HOSTS = new Set(["localhost", "127.0.0.1", "app", "www"]);
+// Registrable base domains under which a leading label denotes a school, e.g.
+// `greenfield.yukicares.cloud` → slug "greenfield", but `yukicares.cloud` is apex.
+const BASE_DOMAINS = ["yukicares.cloud", "localhost"];
 
-/** Subdomain label for the current page, or null on the apex host. */
+/** Subdomain (school) label for the current page, or null on the apex host. */
 export function currentSlug(): string | null {
-  const parts = window.location.hostname.split(".");
-  // e.g. greenfield-high.localhost -> ["greenfield-high", "localhost"]
-  if (parts.length >= 2 && !APEX_HOSTS.has(parts[0])) return parts[0];
-  return null;
+  const host = window.location.hostname;
+  if (APEX_HOSTS.has(host)) return null;
+  const base = BASE_DOMAINS.find((b) => host === b || host.endsWith(`.${b}`));
+  // Unknown host (e.g. a bare IP) or an exact base domain → treat as apex.
+  if (!base || host === base) return null;
+  const label = host.slice(0, host.length - base.length - 1).split(".")[0];
+  return APEX_HOSTS.has(label) ? null : label; // www./app. are still apex
 }
 
 export function isTenantHost(): boolean {
   return currentSlug() !== null;
 }
 
-/** Base API URL derived from the page host (override with VITE_API_BASE_URL). */
+/**
+ * Base API URL. In dev the frontend (5173) talks to the backend on :8000; the
+ * production build is served by nginx which proxies same-origin `/api` to the
+ * backend, so we use a relative base (works through the CDN/TLS too).
+ */
 export function apiBase(): string {
   const override = import.meta.env.VITE_API_BASE_URL;
   if (override) return override;
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:${API_PORT}/api/v1`;
+  if (import.meta.env.DEV) {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:${API_PORT}/api/v1`;
+  }
+  return "/api/v1";
 }
 
 function getCookie(name: string): string | null {

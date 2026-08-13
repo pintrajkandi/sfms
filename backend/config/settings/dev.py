@@ -23,7 +23,13 @@ CSRF_TRUSTED_ORIGINS = [
     "http://*.localhost:5173",
     "http://localhost:8000",
     "http://*.localhost:8000",
+    # Public domain (behind Bunny CDN, which terminates TLS). Needed so the admin
+    # login POST passes CSRF even though the origin server itself speaks HTTP.
+    "https://yukicares.cloud",
+    "https://*.yukicares.cloud",
 ]
+# Extra origins can be added per-deploy without a code change (comma-separated).
+CSRF_TRUSTED_ORIGINS += env.list("EXTRA_CSRF_TRUSTED_ORIGINS", default=[])
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
