@@ -5,6 +5,7 @@ import { Auth0Callback } from "@/features/auth/Auth0Callback";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
 import { ImpersonateScreen } from "@/features/auth/ImpersonateScreen";
 import { LoginScreen } from "@/features/auth/LoginScreen";
+import { FindSchoolScreen } from "@/features/auth/FindSchoolScreen";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
 import { SignupScreen } from "@/features/auth/SignupScreen";
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
       { path: "/terms", element: <TermsPage /> },
       { path: "/signup", element: <SignupScreen /> },
       { path: "/login", element: <LoginScreen /> },
+      { path: "/find-school", element: <FindSchoolScreen /> },
       { path: "/forgot-password", element: <ForgotPasswordScreen /> },
       { path: "/reset-password", element: <ResetPasswordScreen /> },
       { path: "/auth/callback", element: <Auth0Callback /> },

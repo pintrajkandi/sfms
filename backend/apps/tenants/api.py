@@ -21,13 +21,39 @@ log = get_logger("onboarding")
 
 def _tenant_payload(client: Client) -> dict:
     domain = f"{client.slug}.{TENANT_BASE_DOMAIN}"
+    # Dev runs the Vite server on :5173 over http; prod is https on the subdomain.
+    is_dev = TENANT_BASE_DOMAIN in ("localhost", "127.0.0.1")
+    login_url = f"http://{domain}:5173/login" if is_dev else f"https://{domain}/login"
     return {
         "school_name": client.name,
         "school_code": client.code,
         "slug": client.slug,
         "domain": domain,
-        "login_url": f"http://{domain}:5173/login",
+        "login_url": login_url,
     }
+
+
+def _schools_for_email(email: str) -> list[Client]:
+    """Active schools whose (per-tenant) user table contains this email."""
+    from django_tenants.utils import get_public_schema_name, schema_context
+
+    from apps.accounts.models import User
+
+    email = (email or "").strip()
+    if not email or "@" not in email:
+        return []
+    public = get_public_schema_name()
+    matches: list[Client] = []
+    for client in (
+        Client.objects.exclude(schema_name=public).filter(is_active=True).order_by("name")
+    ):
+        try:
+            with schema_context(client.schema_name):
+                if User.objects.filter(email__iexact=email, is_active=True).exists():
+                    matches.append(client)
+        except Exception:  # a broken tenant schema must not fail the whole lookup
+            continue
+    return matches
 
 
 class SignupView(APIView):
@@ -78,3 +104,25 @@ class SlugAvailabilityView(APIView):
     def get(self, request):
         slug = request.query_params.get("slug", "")
         return Response({"slug": slug, "available": slug_available(slug)})
+
+
+class FindSchoolView(APIView):
+    """Forgot-your-school lookup: given an email, return the matching school(s)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+
+    def post(self, request):
+        email = (request.data.get("email") or "").strip()
+        if not email or "@" not in email:
+            return Response(
+                {"detail": "Enter a valid email address."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        schools = _schools_for_email(email)
+        log.info(
+            "find-school lookup matches=%s",
+            len(schools),
+            **ctx(action="find_school"),
+        )
+        return Response({"schools": [_tenant_payload(c) for c in schools]})

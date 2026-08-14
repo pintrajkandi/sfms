@@ -47,6 +47,8 @@ export const authApi = {
   signup: (payload: SignupPayload) => api.post<SchoolRef>("/onboarding/signup/", payload),
   resolveSchool: (school_code: string) =>
     api.post<SchoolRef>("/onboarding/resolve/", { school_code }),
+  findSchool: (email: string) =>
+    api.post<{ schools: SchoolRef[] }>("/onboarding/find-school/", { email }),
   slugAvailable: (slug: string) =>
     api.get<{ slug: string; available: boolean }>(
       `/onboarding/slug-available/?slug=${encodeURIComponent(slug)}`,

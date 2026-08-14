@@ -7,7 +7,12 @@ from django.urls import include, path
 from apps.collections.views import RazorpayWebhookView
 from apps.core.logging_api import ClientLogView
 from apps.tenants.admin_site import platform_admin
-from apps.tenants.api import ResolveSchoolView, SignupView, SlugAvailabilityView
+from apps.tenants.api import (
+    FindSchoolView,
+    ResolveSchoolView,
+    SignupView,
+    SlugAvailabilityView,
+)
 
 
 def health(_request):
@@ -25,6 +30,11 @@ urlpatterns = [
     # Onboarding (create a school) + school-code resolution — no tenant, no auth.
     path("api/v1/onboarding/signup/", SignupView.as_view(), name="onboarding-signup"),
     path("api/v1/onboarding/resolve/", ResolveSchoolView.as_view(), name="onboarding-resolve"),
+    path(
+        "api/v1/onboarding/find-school/",
+        FindSchoolView.as_view(),
+        name="onboarding-find-school",
+    ),
     path(
         "api/v1/onboarding/slug-available/",
         SlugAvailabilityView.as_view(),

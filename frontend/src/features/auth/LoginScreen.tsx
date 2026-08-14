@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { authApi } from "@/api/auth";
 import { ApiError, isTenantHost } from "@/api/client";
 import { log } from "@/lib/logger";
@@ -126,6 +126,15 @@ export function LoginScreen() {
             autoComplete="off"
           />
         </Field>
+
+        {!onTenant && (
+          <p className="-mt-2 text-sm text-slate-500">
+            Don't know your school code?{" "}
+            <Link to="/find-school" className="font-semibold text-brand hover:underline">
+              Find your school
+            </Link>
+          </p>
+        )}
 
         <Field label="Work email" htmlFor="email">
           <IconField
