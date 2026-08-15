@@ -55,6 +55,44 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
                 action="support_ticket",
             ),
         )
+        self._forward_to_platform(ticket)
+
+    def _forward_to_platform(self, ticket):
+        """Mirror the ticket into the public schema (platform admin) + email the team."""
+        from django.db import connection
+        from django_tenants.utils import get_public_schema_name, schema_context
+
+        from apps.core.email import send_mail_async
+        from apps.tenants.models import Client, PlatformSupportTicket
+
+        schema = connection.schema_name
+        submitted_by = getattr(self.request.user, "email", "") or ""
+        try:
+            with schema_context(get_public_schema_name()):
+                school = Client.objects.filter(schema_name=schema).first()
+                PlatformSupportTicket.objects.create(
+                    schema_name=schema,
+                    school_name=school.name if school else schema,
+                    subject=ticket.subject,
+                    category=ticket.category,
+                    message=ticket.message,
+                    contact_email=ticket.contact_email,
+                    submitted_by=submitted_by,
+                    status=ticket.status,
+                )
+        except Exception as exc:  # forwarding must never break the user's request
+            log.error("support forward failed error=%s", exc, **ctx(action="support_forward"))
+        reply_to = ticket.contact_email or submitted_by or "—"
+        send_mail_async(
+            to_email="support@yukicares.cloud",
+            subject=f"[Support · {schema}] {ticket.subject}",
+            body=(
+                f"New support request from school '{schema}'.\n\n"
+                f"Category: {ticket.get_category_display()}\n"
+                f"From: {submitted_by or '—'}   Reply-to: {reply_to}\n\n"
+                f"{ticket.message}"
+            ),
+        )
 
 
 class SchoolClassViewSet(viewsets.ModelViewSet):

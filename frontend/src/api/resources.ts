@@ -47,6 +47,7 @@ export const classes = {
 export const students = {
   search: (q: string) =>
     list<Student>(`/students/${q ? `?search=${encodeURIComponent(q)}` : ""}`),
+  byHostel: (hostelId: number | string) => list<Student>(`/students/?hostel=${hostelId}`),
   get: (id: number | string) => api.get<Student>(`/students/${id}/`),
   create: (body: Partial<Student>) => api.post<Student>("/students/", body),
   update: (id: number | string, body: Partial<Student>) =>
@@ -231,12 +232,23 @@ export const accounting = {
     api.patch<Account>(`/accounts/${id}/`, body),
   removeAccount: (id: number) => api.delete<void>(`/accounts/${id}/`),
   trialBalance: () => api.get<TrialBalance>("/finance/trial-balance/"),
-  profitLoss: () => api.get<ProfitLoss>("/finance/profit-loss/"),
+  profitLoss: (range?: { since?: string; until?: string }) =>
+    api.get<ProfitLoss>(`/finance/profit-loss/${financeRange(range)}`),
   balanceSheet: () => api.get<BalanceSheet>("/finance/balance-sheet/"),
   generalLedger: (code: string) =>
     api.get<GeneralLedger>(`/finance/general-ledger/?account=${encodeURIComponent(code)}`),
-  dayBook: () => api.get<DayBook>("/finance/day-book/"),
+  dayBook: (range?: { since?: string; until?: string }) =>
+    api.get<DayBook>(`/finance/day-book/${financeRange(range)}`),
 };
+
+/** Build a ?since=&until= query for the date-windowed finance reports. */
+function financeRange(r?: { since?: string; until?: string }): string {
+  const params = new URLSearchParams();
+  if (r?.since) params.set("since", r.since);
+  if (r?.until) params.set("until", r.until);
+  const q = params.toString();
+  return q ? `?${q}` : "";
+}
 
 export interface DayBook {
   entries: {

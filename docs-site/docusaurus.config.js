@@ -16,7 +16,11 @@ const config = {
   // Absolute Mintlify-style links (/settings/overview) get baseUrl applied via
   // <Link>; keep the build resilient rather than failing on a stray link.
   onBrokenLinks: "warn",
-  onBrokenMarkdownLinks: "warn",
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
 
   i18n: { defaultLocale: "en", locales: ["en"] },
 

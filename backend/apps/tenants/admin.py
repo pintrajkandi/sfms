@@ -27,7 +27,7 @@ from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationFo
 from apps.accounts.models import User
 
 from .admin_site import platform_admin
-from .models import BackupRun, Client, Domain, Plan
+from .models import BackupRun, Client, Domain, Plan, PlatformSupportTicket
 from .services import provision_school
 
 _STAT_TTL = 300  # cross-tenant stat columns are cached to avoid an N+1 across schemas
@@ -529,6 +529,31 @@ class PlanAdmin(ModelAdmin):
     search_fields = ("name",)
 
 
+class PlatformSupportTicketAdmin(ModelAdmin):
+    """Every school's support requests, in one place (mirrored from tenants)."""
+
+    list_display = ("subject", "school_name", "category", "status", "submitted_by", "created_at")
+    list_filter = ("status", "category", "schema_name")
+    search_fields = ("subject", "message", "school_name", "submitted_by", "contact_email")
+    list_editable = ("status",)  # let operators mark tickets in-progress / resolved
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    readonly_fields = (
+        "schema_name",
+        "school_name",
+        "subject",
+        "category",
+        "message",
+        "contact_email",
+        "submitted_by",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+
+platform_admin.register(PlatformSupportTicket, PlatformSupportTicketAdmin)
 platform_admin.register(Plan, PlanAdmin)
 platform_admin.register(Client, ClientAdmin)
 platform_admin.register(Domain, DomainAdmin)

@@ -112,13 +112,50 @@ function TrialBalanceView() {
   );
 }
 
+/** Month → { since: 'YYYY-MM-01', until: last day } for the date-windowed reports. */
+function monthRange(month: string): { since: string; until: string } | undefined {
+  if (!month) return undefined;
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { since: `${month}-01`, until: `${month}-${String(last).padStart(2, "0")}` };
+}
+
+function MonthFilter({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <Labeled label="Filter by month">
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-ring/40"
+        />
+      </Labeled>
+      <button
+        type="button"
+        onClick={() => setMonth("")}
+        disabled={!month}
+        className="pb-2 text-sm text-slate-500 hover:text-slate-700 disabled:opacity-0"
+      >
+        Clear (all time)
+      </button>
+    </div>
+  );
+}
+
 function ProfitLossView() {
-  const { data, isLoading } = useQuery({ queryKey: ["pnl"], queryFn: () => accounting.profitLoss() });
-  if (isLoading) return <p className="text-slate-500">Loading…</p>;
-  if (!data) return null;
-  const profit = Number(data.net_profit) >= 0;
+  const [month, setMonth] = useState("");
+  const { data, isLoading } = useQuery({
+    queryKey: ["pnl", month],
+    queryFn: () => accounting.profitLoss(monthRange(month)),
+  });
+  const profit = data ? Number(data.net_profit) >= 0 : true;
   return (
     <div className="space-y-5">
+      <MonthFilter month={month} setMonth={setMonth} />
+      {isLoading && <p className="text-slate-500">Loading…</p>}
+      {!isLoading && data && (
+        <>
       <div>
         <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-emerald-700">Income</h3>
         <StatementTable head={["Account", "Amount"]} rows={[...data.income.map((r) => [`${r.code} · ${r.name}`, formatMoney(r.amount!)]), [<span key="t" className="font-semibold">Total Income</span>, <span key="a" className="font-semibold text-emerald-600">{formatMoney(data.total_income)}</span>]]} />
@@ -131,6 +168,8 @@ function ProfitLossView() {
         <span className="font-bold text-slate-900">Net {profit ? "Profit" : "Loss"}</span>
         <span className={`text-lg font-bold ${profit ? "text-emerald-600" : "text-rose-600"}`}>{formatMoney(data.net_profit)}</span>
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -194,12 +233,18 @@ function GeneralLedgerView() {
 }
 
 function DayBookView() {
-  const { data, isLoading } = useQuery({ queryKey: ["day-book"], queryFn: () => accounting.dayBook() });
-  if (isLoading) return <p className="text-slate-500">Loading…</p>;
-  if (!data) return null;
+  const [month, setMonth] = useState("");
+  const { data, isLoading } = useQuery({
+    queryKey: ["day-book", month],
+    queryFn: () => accounting.dayBook(monthRange(month)),
+  });
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">Every posted journal entry, newest first · Total {formatMoney(data.total_debit)}</p>
+      <MonthFilter month={month} setMonth={setMonth} />
+      {isLoading && <p className="text-slate-500">Loading…</p>}
+      {!isLoading && data && (
+        <>
+      <p className="text-sm text-slate-500">Posted journal entries, newest first · Total {formatMoney(data.total_debit)}</p>
       {data.entries.length === 0 && (
         <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-8 text-center text-slate-400">
           No journal entries yet. Record a payment, expense or payout and it appears here automatically.
@@ -226,6 +271,8 @@ function DayBookView() {
           </div>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }

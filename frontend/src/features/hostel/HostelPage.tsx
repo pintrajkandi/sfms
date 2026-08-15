@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
-import { hostel } from "@/api/resources";
+import { hostel, students } from "@/api/resources";
+import type { Student } from "@/api/types";
 import { Card } from "@/components/Card";
 import { Button, Labeled, PageHeader, Select, TextInput, Toast } from "@/components/form";
 import { formatMoney } from "@/lib/money";
 
-type Tab = "hostels" | "rooms" | "expenses" | "report";
+type Tab = "hostels" | "rooms" | "residents" | "expenses" | "report";
 const TABS: { key: Tab; label: string }[] = [
   { key: "hostels", label: "Hostels" },
   { key: "rooms", label: "Rooms" },
+  { key: "residents", label: "Residents" },
   { key: "expenses", label: "Expenses" },
   { key: "report", label: "Occupancy & P/L" },
 ];
@@ -119,6 +121,110 @@ function Rooms() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function Residents() {
+  const qc = useQueryClient();
+  const hostels = useQuery({ queryKey: ["hostels"], queryFn: () => hostel.hostels() });
+  const { toast, fail } = useToast();
+  const [hostelId, setHostelId] = useState("");
+  const [q, setQ] = useState("");
+  const [room, setRoom] = useState("");
+  const [picked, setPicked] = useState<Student | null>(null);
+
+  const residents = useQuery({
+    queryKey: ["hostel-residents", hostelId],
+    queryFn: () => students.byHostel(hostelId),
+    enabled: !!hostelId,
+  });
+  const search = useQuery({
+    queryKey: ["student-search", q],
+    queryFn: () => students.search(q),
+    enabled: q.trim().length >= 2,
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["hostel-residents", hostelId] });
+    qc.invalidateQueries({ queryKey: ["hostels"] });
+    qc.invalidateQueries({ queryKey: ["hostel-report"] });
+  };
+  const allocate = useMutation({
+    mutationFn: () => students.update(picked!.id, { hostel: Number(hostelId), hostel_room: room }),
+    onSuccess: () => { setPicked(null); setQ(""); setRoom(""); invalidate(); },
+    onError: fail,
+  });
+  const removeRes = useMutation({
+    mutationFn: (id: number) => students.update(id, { hostel: null, hostel_room: "" }),
+    onSuccess: invalidate,
+    onError: fail,
+  });
+
+  return (
+    <div className="space-y-4">
+      {toast && <Toast message={toast.msg} tone={toast.tone} />}
+      <Labeled label="Hostel">
+        <Select value={hostelId} onChange={(e) => { setHostelId(e.target.value); setPicked(null); setQ(""); }}>
+          <option value="">Select a hostel to manage residents</option>
+          {hostels.data?.results.map((h) => <option key={h.id} value={h.id}>{h.code} · {h.name}</option>)}
+        </Select>
+      </Labeled>
+
+      {hostelId && (
+        <>
+          <div className="rounded-xl border border-slate-100 p-4">
+            <h3 className="mb-2 text-sm font-semibold text-slate-800">Add a resident</h3>
+            {picked ? (
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="text-sm">
+                  <p className="font-medium text-slate-800">{picked.full_name}</p>
+                  <p className="text-slate-500">{picked.student_id} · Class {picked.grade || "—"}</p>
+                </div>
+                <Labeled label="Room number"><TextInput value={room} onChange={(e) => setRoom(e.target.value)} placeholder="e.g. 101" /></Labeled>
+                <Button onClick={() => allocate.mutate()} disabled={allocate.isPending}>Allocate</Button>
+                <button type="button" onClick={() => setPicked(null)} className="pb-2 text-sm text-slate-500 hover:text-slate-700">Cancel</button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a student by name, ID or phone…" />
+                {q.trim().length >= 2 && (
+                  <div className="max-h-56 divide-y divide-slate-50 overflow-y-auto rounded-lg border border-slate-100">
+                    {search.data?.results.map((s) => (
+                      <button key={s.id} type="button" onClick={() => { setPicked(s); setRoom(s.hostel_room || ""); }}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50">
+                        <span><span className="font-medium text-slate-800">{s.full_name}</span> <span className="text-slate-400">· {s.student_id}</span></span>
+                        {s.hostel && <span className="text-xs text-amber-600">already in a hostel</span>}
+                      </button>
+                    ))}
+                    {search.data && search.data.results.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">No students found.</p>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr><th className="px-4 py-2">Student</th><th className="px-4 py-2">ID</th><th className="px-4 py-2">Class</th><th className="px-4 py-2">Room</th><th className="px-4 py-2"></th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {residents.data?.results.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-2 font-medium text-slate-800">{s.full_name}</td>
+                    <td className="px-4 py-2 font-mono text-slate-600">{s.student_id}</td>
+                    <td className="px-4 py-2 text-slate-600">{s.grade || "—"}</td>
+                    <td className="px-4 py-2 text-slate-700">{s.hostel_room || "—"}</td>
+                    <td className="px-4 py-2 text-right"><button onClick={() => removeRes.mutate(s.id)} className="text-xs text-rose-600 hover:underline">Remove</button></td>
+                  </tr>
+                ))}
+                {residents.data?.results.length === 0 && <tr><td colSpan={5} className="px-4 py-3 text-slate-400">No residents allocated yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -233,6 +339,7 @@ export function HostelPage() {
       <Card>
         {tab === "hostels" && <Hostels />}
         {tab === "rooms" && <Rooms />}
+        {tab === "residents" && <Residents />}
         {tab === "expenses" && <Expenses />}
         {tab === "report" && <Report />}
       </Card>

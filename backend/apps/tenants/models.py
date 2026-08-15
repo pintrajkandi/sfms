@@ -117,3 +117,29 @@ class BackupRun(models.Model):
 
     def __str__(self) -> str:
         return f"Backup {self.label} [{self.status}]"
+
+
+class PlatformSupportTicket(models.Model):
+    """A support request from a school, mirrored into the public schema so the
+    platform team sees every school's tickets in one admin list."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in_progress", "In Progress"
+        RESOLVED = "resolved", "Resolved"
+
+    schema_name = models.CharField(max_length=63, db_index=True)
+    school_name = models.CharField(max_length=200, blank=True)
+    subject = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, default="other")
+    message = models.TextField()
+    contact_email = models.EmailField(blank=True)
+    submitted_by = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.school_name or self.schema_name}: {self.subject}"

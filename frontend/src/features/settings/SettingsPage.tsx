@@ -4,6 +4,8 @@ import { ApiError } from "@/api/client";
 import { collections, settings, type SchoolSettings, type SettingsFileField } from "@/api/resources";
 import { Card } from "@/components/Card";
 import { Button, Labeled, Select, TextArea, TextInput, Toast } from "@/components/form";
+import { authApi } from "@/api/auth";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { AcademicYearTab } from "./AcademicYearTab";
 import { ClassesPage } from "./ClassesPage";
 import { DepartmentsTab } from "./DepartmentsTab";
@@ -24,6 +26,7 @@ const TABS = [
   "Notifications",
   "Subscription",
   "Security",
+  "Account",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -165,6 +168,7 @@ export function SettingsPage() {
           {tab === "Subscription" && <SubscriptionTab />}
           {tab === "Notifications" && <Notifications form={form} set={set} />}
           {tab === "Security" && <Security />}
+          {tab === "Account" && <Account />}
         </Card>
       </div>
     </div>
@@ -408,6 +412,67 @@ function Security() {
 {data?.public_pem ?? "Loading…"}
         </pre>
       </div>
+    </Section>
+  );
+}
+
+function Account() {
+  const { user } = useAuth();
+  const [cur, setCur] = useState("");
+  const [nw, setNw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; tone: "success" | "error" } | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (nw !== confirm) {
+      setToast({ msg: "The new passwords don't match.", tone: "error" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await authApi.changePassword(cur, nw);
+      setToast({ msg: res.detail || "Password updated.", tone: "success" });
+      setCur("");
+      setNw("");
+      setConfirm("");
+    } catch (err) {
+      const body = err instanceof ApiError ? (err.body as Record<string, string[]> | null) : null;
+      const msg =
+        body?.current_password?.[0] ||
+        body?.new_password?.[0] ||
+        (err instanceof ApiError ? err.detail : "") ||
+        "Could not update your password.";
+      setToast({ msg, tone: "error" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Section title="Account" subtitle="Your profile and password">
+      {toast && <Toast message={toast.msg} tone={toast.tone} />}
+      <div className="sm:col-span-2 space-y-1 text-sm text-slate-600">
+        <p><span className="font-medium text-slate-500">Name:</span> {user?.full_name || "—"}</p>
+        <p><span className="font-medium text-slate-500">Email:</span> {user?.email || "—"}</p>
+        <p><span className="font-medium text-slate-500">Role:</span> <span className="capitalize">{user?.role || "—"}</span></p>
+      </div>
+      <form onSubmit={submit} className="sm:col-span-2 mt-4 max-w-md space-y-4 border-t border-slate-100 pt-5">
+        <h3 className="text-sm font-semibold text-slate-800">Change password</h3>
+        <Labeled label="Current password" required>
+          <TextInput type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
+        </Labeled>
+        <Labeled label="New password" required>
+          <TextInput type="password" value={nw} onChange={(e) => setNw(e.target.value)} autoComplete="new-password" />
+        </Labeled>
+        <Labeled label="Confirm new password" required>
+          <TextInput type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+        </Labeled>
+        <Button type="submit" disabled={saving || !cur || !nw || !confirm}>
+          {saving ? "Updating…" : "Update password"}
+        </Button>
+      </form>
     </Section>
   );
 }

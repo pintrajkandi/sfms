@@ -73,7 +73,23 @@ cd frontend && npm install && npm run typecheck && npm run lint
 ## Layout
 
 ```
-backend/   Django project (config/) + apps/ (core, tenants, accounts, schools,
-           students, fees, collections, staff, expenses, inventory, finance)
-frontend/  Vite + React + Tailwind; feature-first under src/features
+backend/    Django project (config/) + apps/ (core, tenants, accounts, schools,
+            students, fees, collections, staff, expenses, inventory, finance)
+frontend/   Vite + React + Tailwind; feature-first under src/features
+docs-site/  Docusaurus user guide (YukiCares Docs), served at /docs/
+```
+
+## User docs (Docusaurus)
+
+The product guide lives in `docs-site/` (not a Mintlify `docs/` folder). Dev server:
+
+```bash
+cd docs-site && npm install && npm start   # http://localhost:3000/docs/
+```
+
+Production static build for nginx (`./docs-build` → `/docs/`):
+
+```bash
+cd docs-site && npm run build
+rm -rf ../docs-build && cp -R build ../docs-build
 ```

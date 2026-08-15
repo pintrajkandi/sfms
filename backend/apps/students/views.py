@@ -50,6 +50,10 @@ class StudentViewSet(viewsets.ModelViewSet):
                     | Q(guardian_name__icontains=word)
                     | Q(email__icontains=word)
                 )
+        # Hostel residents (students allocated to a given hostel).
+        hostel = self.request.query_params.get("hostel")
+        if hostel:
+            qs = qs.filter(hostel_id=hostel)
         return qs
 
     def perform_create(self, serializer):

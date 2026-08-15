@@ -61,6 +61,8 @@ export const authApi = {
   impersonate: (ticket: string) => api.post<User>("/auth/impersonate/", { ticket }),
   logout: () => api.post<void>("/auth/logout/", {}),
   me: () => api.get<User>("/auth/me/"),
+  changePassword: (current_password: string, new_password: string) =>
+    api.post<{ detail: string }>("/auth/change-password/", { current_password, new_password }),
 
   // Exchange an Auth0 access token for a tenant session.
   auth0Login: (accessToken: string) =>

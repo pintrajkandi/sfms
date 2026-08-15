@@ -13,6 +13,7 @@ staticfiles/
 # Node
 node_modules/
 frontend/dist/
+docs-build/
 
 # OS / editor
 .DS_Store

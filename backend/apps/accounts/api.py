@@ -507,3 +507,33 @@ class PasswordResetConfirmView(APIView):
         user.save(update_fields=["password"])
         log.info("password reset completed", **ctx(user=user.id, action="password_reset_confirm"))
         return Response({"detail": "Your password has been reset. You can now sign in."})
+
+
+class ChangePasswordView(APIView):
+    """A signed-in user changes their own password (current + new)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from django.contrib.auth import update_session_auth_hash
+
+        user = request.user
+        current = request.data.get("current_password") or ""
+        new = request.data.get("new_password") or ""
+        if not user.check_password(current):
+            return Response(
+                {"current_password": ["Your current password is incorrect."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            validate_password(new, user=user)
+        except Exception as exc:  # Django's ValidationError
+            return Response(
+                {"new_password": list(getattr(exc, "messages", [str(exc)]))},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.set_password(new)
+        user.save(update_fields=["password"])
+        update_session_auth_hash(request, user)  # keep the current session signed in
+        log.info("password changed", **ctx(user=user.id, action="change_password"))
+        return Response({"detail": "Your password has been updated."})

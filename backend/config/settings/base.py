@@ -328,6 +328,13 @@ UNFOLD = {
                         "icon": "backup",
                         "link": reverse_lazy("platform_admin:tenants_backuprun_changelist"),
                     },
+                    {
+                        "title": "Support tickets",
+                        "icon": "support_agent",
+                        "link": reverse_lazy(
+                            "platform_admin:tenants_platformsupportticket_changelist"
+                        ),
+                    },
                 ],
             },
             {

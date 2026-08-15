@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.accounts.api import (
     Auth0LoginView,
+    ChangePasswordView,
     CsrfView,
     ImpersonateView,
     LoginView,
@@ -150,6 +151,7 @@ urlpatterns = [
     path("auth/auth0/", Auth0LoginView.as_view(), name="auth-auth0"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="auth-change-password"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("push/vapid-key/", VapidKeyView.as_view(), name="push-vapid-key"),
     path("push/subscribe/", PushSubscribeView.as_view(), name="push-subscribe"),

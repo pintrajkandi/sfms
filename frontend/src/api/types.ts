@@ -31,6 +31,8 @@ export interface Student {
   tuition_fee: string;
   transport_fee: string;
   other_fee: string;
+  hostel: number | null;
+  hostel_room: string;
 }
 
 export interface BlogPostListItem {
