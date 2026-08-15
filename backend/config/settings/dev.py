@@ -3,8 +3,10 @@
 from .base import *  # noqa: F401,F403
 from .base import env
 
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
+# Defaults to True for local dev, but can be turned off per-deploy (e.g. on the
+# server set DEBUG=0 so tracebacks/settings are never exposed on errors/404s).
+DEBUG = env.bool("DEBUG", default=True)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
 # Serve static straight from app/finder dirs — no collectstatic needed in dev.
 WHITENOISE_USE_FINDERS = True
