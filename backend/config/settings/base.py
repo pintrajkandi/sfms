@@ -199,6 +199,9 @@ STORAGE_QUERYSTRING_AUTH = env.bool("STORAGE_QUERYSTRING_AUTH", default=False)
 # "aws:kms". Bunny.net Edge Storage encrypts at rest natively and ignores this
 # header, so this only matters for stores that honour SSE (AWS S3, MinIO+KMS).
 STORAGE_SERVER_SIDE_ENCRYPTION = env("STORAGE_SERVER_SIDE_ENCRYPTION", default="")
+# Signing version. Blank = boto3 default (s3v4). Set to "s3v4" for stores that
+# require it explicitly (some S3-compatible providers, incl. Bunny.net S3).
+STORAGE_SIGNATURE_VERSION = env("STORAGE_SIGNATURE_VERSION", default="")
 
 _STORAGE_OPTIONS = {
     "access_key": STORAGE_ACCESS_KEY,
@@ -211,6 +214,8 @@ _STORAGE_OPTIONS = {
     "querystring_auth": STORAGE_QUERYSTRING_AUTH,
     "file_overwrite": False,
 }
+if STORAGE_SIGNATURE_VERSION:
+    _STORAGE_OPTIONS["signature_version"] = STORAGE_SIGNATURE_VERSION
 # custom_domain only makes sense for unsigned public URLs; omit it when signing.
 if STORAGE_PUBLIC_DOMAIN and not STORAGE_QUERYSTRING_AUTH:
     _STORAGE_OPTIONS["custom_domain"] = STORAGE_PUBLIC_DOMAIN
