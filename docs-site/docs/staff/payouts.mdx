@@ -1,0 +1,58 @@
+---
+title: "Teacher Payouts & Payslips"
+description: "Create salary and incentive payouts, review payslips, update their status, and print payslips on your school letterhead."
+---
+
+YukiCares has two related screens:
+
+<CardGroup cols={2}>
+  <Card title="Teacher Payouts" icon="money-check-dollar">
+    Create and submit a payout (salary, bonus or reimbursement).
+  </Card>
+  <Card title="Payouts List" icon="list-check">
+    Review every payout, open a payslip, update status and print.
+  </Card>
+</CardGroup>
+
+## Create a payout
+
+<Steps>
+  <Step title="Open Teacher Payouts">
+    Search and select the teacher — their salary structure pre-fills the amounts.
+  </Step>
+  <Step title="Choose the pay period and amounts">
+    Set the **pay period** (month), and confirm base, bonus and deductions. Net pay is calculated as base + bonus − deductions.
+  </Step>
+  <Step title="Submit">
+    The payout is created with status **Pending**.
+  </Step>
+</Steps>
+
+<Warning>
+A teacher can't have two payouts of the same kind for the **same month**. If one already exists, you'll see an alert — *"A salary payout for … already exists for …"*. A **rejected** payout can be re-submitted for that month.
+</Warning>
+
+## Review, update status & print a payslip
+
+<Steps>
+  <Step title="Open the Payouts List">
+    Every payout is listed with teacher, period, amounts and status. Click a row (or **View payslip →**).
+  </Step>
+  <Step title="Read the payslip">
+    The payslip shows earnings, deductions and **net pay** on your school **letterhead** (logo, name, address).
+  </Step>
+  <Step title="Update the status">
+    From the payslip you can **Mark as Paid** or **Reject** (each asks for confirmation).
+  </Step>
+  <Step title="Print the payslip">
+    Choose **Print Payslip** to print or save it as a PDF, letterhead and all.
+  </Step>
+</Steps>
+
+## Full statutory payroll
+
+For a complete salary run with **PF / ESI / TDS / professional tax**, use the payroll run — deductions are computed from your [Payroll settings](/settings/payroll). You can override any statutory component for a special case.
+
+<Note>
+Payouts are **idempotent and status-guarded** — a payout moves from Pending to either Paid or Rejected, and can't be double-processed.
+</Note>

@@ -56,6 +56,9 @@ jobs:
             --exclude 'backend/celerybeat-schedule' \
             --exclude 'backend/staticfiles' \
             --exclude 'backend/media' \
+            --exclude 'docs-build' \
+            --exclude 'docs-site/node_modules' \
+            --exclude 'docs-site/build' \
             -e "ssh -p ${{ secrets.HETZNER_SSH_PORT || 22 }} -o StrictHostKeyChecking=yes" \
             ./ "${{ secrets.HETZNER_USERNAME }}@${{ secrets.HETZNER_HOST }}:/home/sfms/"
 
