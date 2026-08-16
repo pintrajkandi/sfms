@@ -30,8 +30,18 @@ export default defineConfig({
       workbox: {
         navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        // Never cache API calls — always hit the tenant backend fresh.
-        navigateFallbackDenylist: [/^\/api/],
+        cleanupOutdatedCaches: true,
+        // Never serve the SPA shell for server-side routes — these must reach
+        // nginx/Django, not the SW (fixes /admin 404, docs, static, media).
+        navigateFallbackDenylist: [
+          /^\/api/,
+          /^\/admin/,
+          /^\/docs/,
+          /^\/static/,
+          /^\/media/,
+          /^\/sfms-media/,
+          /^\/health/,
+        ],
         // Custom push / notificationclick handlers merged into the generated SW.
         importScripts: ["push-handler.js"],
       },
