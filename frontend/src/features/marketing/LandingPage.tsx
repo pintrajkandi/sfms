@@ -165,6 +165,7 @@ function NavBar() {
     { label: "Pricing", to: "#pricing" },
     { label: "Blog", to: "/blog" },
     { label: "FAQ", to: "/faq" },
+    { label: "Docs", to: "/docs/" },
     { label: "Security", to: "/security" },
     { label: "Contact", to: "#footer" },
   ];
@@ -175,7 +176,7 @@ function NavBar() {
 
         <nav className="hidden items-center gap-7 lg:flex">
           {links.map((l) =>
-            l.to.startsWith("/") ? (
+            l.to.startsWith("/") && !l.to.startsWith("/docs") ? (
               <Link key={l.label} to={l.to} className="flex items-center gap-1 text-sm font-medium text-slate-600 transition hover:text-indigo-600">
                 {l.label}
               </Link>
@@ -204,7 +205,7 @@ function NavBar() {
         <div className="border-t border-slate-100 bg-white px-6 py-4 lg:hidden">
           <div className="flex flex-col gap-3">
             {links.map((l) =>
-              l.to.startsWith("/") ? (
+              l.to.startsWith("/") && !l.to.startsWith("/docs") ? (
                 <Link key={l.label} to={l.to} onClick={() => setOpen(false)} className="text-sm font-medium text-slate-600">{l.label}</Link>
               ) : (
                 <a key={l.label} href={l.to} onClick={() => setOpen(false)} className="text-sm font-medium text-slate-600">{l.label}</a>

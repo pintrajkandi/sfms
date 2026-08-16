@@ -63,7 +63,6 @@ const NAV: NavItem[] = [
   { to: "/risk", label: "Predictive", icon: ChartIcon },
   { to: "/audit-log", label: "Audit Log", icon: DocIcon, adminOnly: true },
   { to: "/support", label: "Support", icon: ChatIcon },
-  { to: "/docs", label: "Docs", icon: DocIcon, external: "/docs/" },
   { to: "/settings", label: "Settings", icon: CogIcon },
 ];
 

@@ -33,14 +33,23 @@ export const NAV_LINKS: { label: string; to: string }[] = [
   { label: "Pricing", to: "/welcome#pricing" },
   { label: "Blog", to: "/blog" },
   { label: "FAQ", to: "/faq" },
+  { label: "Docs", to: "/docs/" },
   { label: "Security", to: "/security" },
   { label: "Contact", to: "/welcome#footer" },
 ];
 
 function NavItem({ to, label, onClick }: { to: string; label: string; onClick?: () => void }) {
   const cls = "text-sm font-medium text-slate-600 transition hover:text-indigo-600";
-  // Anchor (section) links do a real navigation so the browser resolves the hash;
-  // plain routes stay in the SPA.
+  // /docs/ is the separate (Docusaurus) site — open it as a real link.
+  // Anchor (section) links also do a real navigation so the browser resolves the
+  // hash. Plain routes stay in the SPA.
+  if (to.startsWith("/docs")) {
+    return (
+      <a href={to} onClick={onClick} className={cls}>
+        {label}
+      </a>
+    );
+  }
   return to.includes("#") ? (
     <a href={to} onClick={onClick} className={cls}>{label}</a>
   ) : (
