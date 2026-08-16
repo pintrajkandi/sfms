@@ -1,0 +1,115 @@
+{
+  "name": "YukiCares Support",
+  "description": "Greets visitors, answers common school-finance questions, and hands off to a human.",
+  "version": 1,
+  "trigger": {
+    "type": "visitor_opens_chat"
+  },
+  "nodes": [
+    {
+      "id": "welcome",
+      "type": "bot_message",
+      "position": { "x": 0, "y": 0 },
+      "messages": [
+        "👋 Hi! I'm the YukiCares assistant.",
+        "I can help with fees, logins, how to use the app, or connect you to a human. What do you need?"
+      ],
+      "next": "main_menu"
+    },
+    {
+      "id": "main_menu",
+      "type": "quick_replies",
+      "position": { "x": 0, "y": 200 },
+      "question": "Pick an option 👇",
+      "options": [
+        { "id": "qr_fees", "label": "💰 Fees & payments", "next": "answer_fees" },
+        { "id": "qr_login", "label": "🔑 Login / password", "next": "answer_login" },
+        { "id": "qr_docs", "label": "📚 How to use YukiCares", "next": "answer_docs" },
+        { "id": "qr_human", "label": "💬 Talk to a human", "next": "collect_email" }
+      ]
+    },
+    {
+      "id": "answer_fees",
+      "type": "bot_message",
+      "position": { "x": -300, "y": 400 },
+      "messages": [
+        "You can collect fees, generate invoices and share digitally-signed receipts from the **Fee Collection** module.",
+        "Guide: https://yukicares.cloud/docs/fees/collect-fee"
+      ],
+      "next": "anything_else"
+    },
+    {
+      "id": "answer_login",
+      "type": "bot_message",
+      "position": { "x": -100, "y": 400 },
+      "messages": [
+        "Forgot your school? Go to https://yukicares.cloud/find-school and enter your email.",
+        "Forgot your password? Use the reset link on your school's login page."
+      ],
+      "next": "anything_else"
+    },
+    {
+      "id": "answer_docs",
+      "type": "bot_message",
+      "position": { "x": 100, "y": 400 },
+      "messages": [
+        "Everything is in our docs 📚: https://yukicares.cloud/docs",
+        "Start with the Quick Start guide."
+      ],
+      "next": "anything_else"
+    },
+    {
+      "id": "collect_email",
+      "type": "ask_email",
+      "position": { "x": 300, "y": 400 },
+      "message": "Sure! What's the best email to reach you at?",
+      "save_as": "visitor_email",
+      "next": "handoff"
+    },
+    {
+      "id": "handoff",
+      "type": "assign_operator",
+      "position": { "x": 300, "y": 600 },
+      "message": "Thanks! 🙌 Our team will get back to you shortly. You can also email us at support@yukicares.cloud.",
+      "next": "end"
+    },
+    {
+      "id": "anything_else",
+      "type": "quick_replies",
+      "position": { "x": 0, "y": 600 },
+      "question": "Anything else?",
+      "options": [
+        { "id": "qr_menu", "label": "↩️ Back to menu", "next": "main_menu" },
+        { "id": "qr_human2", "label": "💬 Talk to a human", "next": "collect_email" },
+        { "id": "qr_done", "label": "✅ No, thanks", "next": "goodbye" }
+      ]
+    },
+    {
+      "id": "goodbye",
+      "type": "bot_message",
+      "position": { "x": -200, "y": 800 },
+      "messages": ["Happy to help! Have a great day. 👋"],
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "position": { "x": 0, "y": 900 }
+    }
+  ],
+  "edges": [
+    { "from": "welcome", "to": "main_menu" },
+    { "from": "main_menu", "to": "answer_fees", "on": "qr_fees" },
+    { "from": "main_menu", "to": "answer_login", "on": "qr_login" },
+    { "from": "main_menu", "to": "answer_docs", "on": "qr_docs" },
+    { "from": "main_menu", "to": "collect_email", "on": "qr_human" },
+    { "from": "answer_fees", "to": "anything_else" },
+    { "from": "answer_login", "to": "anything_else" },
+    { "from": "answer_docs", "to": "anything_else" },
+    { "from": "collect_email", "to": "handoff" },
+    { "from": "handoff", "to": "end" },
+    { "from": "anything_else", "to": "main_menu", "on": "qr_menu" },
+    { "from": "anything_else", "to": "collect_email", "on": "qr_human2" },
+    { "from": "anything_else", "to": "goodbye", "on": "qr_done" }
+  ]
+}
