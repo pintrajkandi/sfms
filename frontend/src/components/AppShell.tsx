@@ -41,7 +41,7 @@ const CogIcon = ({ className = ic }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.4 2.6a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.6h5l.4-2.6a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5c.06-.33.1-.66.1-1Z" /></svg>
 );
 
-type NavItem = { to: string; label: string; icon: (p: IconProps) => JSX.Element; end?: boolean; adminOnly?: boolean; superuserOnly?: boolean };
+type NavItem = { to: string; label: string; icon: (p: IconProps) => JSX.Element; end?: boolean; adminOnly?: boolean; superuserOnly?: boolean; external?: string };
 
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: HomeIcon, end: true },
@@ -63,6 +63,7 @@ const NAV: NavItem[] = [
   { to: "/risk", label: "Predictive", icon: ChartIcon },
   { to: "/audit-log", label: "Audit Log", icon: DocIcon, adminOnly: true },
   { to: "/support", label: "Support", icon: ChatIcon },
+  { to: "/docs", label: "Docs", icon: DocIcon, external: "/docs/" },
   { to: "/settings", label: "Settings", icon: CogIcon },
 ];
 
@@ -92,21 +93,34 @@ export function AppShell() {
           </div>
         </div>
         <nav className="mt-2 flex flex-1 flex-col gap-1 px-3">
-          {NAV.filter((item) => isVisible(item, user?.role, user?.is_superuser)).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
-                  isActive ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10"
-                }`
-              }
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </NavLink>
-          ))}
+          {NAV.filter((item) => isVisible(item, user?.role, user?.is_superuser)).map((item) =>
+            item.external ? (
+              <a
+                key={item.to}
+                href={item.external}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-white/75 transition hover:bg-white/10"
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </a>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
+                    isActive ? "bg-white/20 text-white" : "text-white/75 hover:bg-white/10"
+                  }`
+                }
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </NavLink>
+            ),
+          )}
         </nav>
         <div className="border-t border-white/10 px-4 py-4">
           <p className="truncate text-sm font-medium">{user?.full_name}</p>
@@ -173,18 +187,32 @@ export function AppShell() {
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-slate-200" />
             <div className="grid grid-cols-3 gap-3">
-              {NAV.filter((n) => !BOTTOM.includes(n) && isVisible(n, user?.role, user?.is_superuser)).map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  onClick={() => setMoreOpen(false)}
-                  className="flex flex-col items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 py-4 text-xs font-medium text-slate-700"
-                >
-                  <item.icon className="h-6 w-6 text-brand" />
-                  {item.label}
-                </NavLink>
-              ))}
+              {NAV.filter((n) => !BOTTOM.includes(n) && isVisible(n, user?.role, user?.is_superuser)).map((item) =>
+                item.external ? (
+                  <a
+                    key={item.to}
+                    href={item.external}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMoreOpen(false)}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 py-4 text-xs font-medium text-slate-700"
+                  >
+                    <item.icon className="h-6 w-6 text-brand" />
+                    {item.label}
+                  </a>
+                ) : (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={() => setMoreOpen(false)}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 py-4 text-xs font-medium text-slate-700"
+                  >
+                    <item.icon className="h-6 w-6 text-brand" />
+                    {item.label}
+                  </NavLink>
+                ),
+              )}
             </div>
           </div>
         </div>
