@@ -166,6 +166,7 @@ function NavBar() {
     { label: "Blog", to: "/blog" },
     { label: "FAQ", to: "/faq" },
     { label: "Docs", to: "/docs/" },
+    { label: "Find School", to: "/find-school" },
     { label: "Security", to: "/security" },
     { label: "Contact", to: "#footer" },
   ];

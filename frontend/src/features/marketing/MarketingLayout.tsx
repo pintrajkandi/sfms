@@ -34,6 +34,7 @@ export const NAV_LINKS: { label: string; to: string }[] = [
   { label: "Blog", to: "/blog" },
   { label: "FAQ", to: "/faq" },
   { label: "Docs", to: "/docs/" },
+  { label: "Find School", to: "/find-school" },
   { label: "Security", to: "/security" },
   { label: "Contact", to: "/welcome#footer" },
 ];
